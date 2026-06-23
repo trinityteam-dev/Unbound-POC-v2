@@ -1,0 +1,3765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMSF Document Intelligence & Agent Orchestration Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --surface-color: #ffffff;
+            --surface-border: #e2e8f0;
+            --primary: #00AF5A;
+            --primary-glow: rgba(0, 175, 90, 0.08);
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --success: #00AF5A;
+            --success-glow: rgba(0, 175, 90, 0.1);
+            --warning: #eab308;
+            --warning-glow: rgba(234, 179, 8, 0.1);
+            --danger: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.1);
+            --info: #2AA6DE;
+            --info-glow: rgba(42, 166, 222, 0.1);
+            --font-display: 'Poppins', sans-serif;
+            --font-sans: 'Poppins', sans-serif;
+            --sidebar-width: 320px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 5% 5%, rgba(0, 175, 90, 0.04) 0%, transparent 45%),
+                radial-gradient(circle at 95% 95%, rgba(42, 166, 222, 0.04) 0%, transparent 45%);
+            background-attachment: fixed;
+        }
+
+        /* SuperRecords Double Header Styles */
+        .superrecords-top-bar {
+            background-color: #151B2D;
+            color: #ffffff;
+            font-size: 0.8rem;
+            padding: 0.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 36px;
+            z-index: 20;
+            flex-shrink: 0;
+        }
+
+        .top-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .top-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .new-request-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-family: var(--font-sans);
+            transition: all 0.2s ease;
+        }
+
+        .new-request-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .user-dropdown {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .user-avatar {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* White Main Header with Logo & Tabs */
+        .superrecords-main-header {
+            background-color: #ffffff;
+            border-bottom: 1px solid var(--surface-border);
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 70px;
+            z-index: 15;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+            flex-shrink: 0;
+        }
+
+        .brand-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .brand-logo-circle {
+            width: 32px;
+            height: 32px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0, 175, 90, 0.3);
+        }
+
+        .brand-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: -0.01em;
+        }
+
+        .header-tabs-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            height: 100%;
+        }
+
+        /* Content wrapper layout */
+        .main-body-container {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Floating background bubble graphics */
+        .floating-decoration {
+            position: absolute;
+            pointer-events: none;
+            z-index: 1;
+            user-select: none;
+        }
+
+        .bubble-percent {
+            left: 20px;
+            top: 250px;
+            width: 85px;
+            height: 85px;
+            background: #00AF5A;
+            border-radius: 50% 50% 50% 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-size: 2.2rem;
+            font-weight: 800;
+            box-shadow: 0 10px 25px rgba(0, 175, 90, 0.25);
+            opacity: 0.15;
+            animation: float-bubble-left 7s ease-in-out infinite;
+        }
+
+        .bubble-like {
+            right: 40px;
+            top: 180px;
+            width: 75px;
+            height: 75px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 50% 50% 0 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            opacity: 0.25;
+            animation: float-bubble-right 8s ease-in-out infinite;
+        }
+
+        .bubble-shield {
+            right: 80px;
+            bottom: 60px;
+            width: 90px;
+            height: 110px;
+            opacity: 0.15;
+            animation: float-bubble-shield 9s ease-in-out infinite;
+        }
+
+        @keyframes float-bubble-left {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-15px) rotate(3deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+
+        @keyframes float-bubble-right {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(15px) rotate(-4deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+
+        @keyframes float-bubble-shield {
+            0% { transform: translateY(0px) scale(1); }
+            50% { transform: translateY(-12px) scale(1.02) rotate(2deg); }
+            100% { transform: translateY(0px) scale(1); }
+        }
+
+        /* Sidebar Styling */
+        aside {
+            width: var(--sidebar-width);
+            background: #ffffff;
+            border-right: 1px solid var(--surface-border);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            flex-shrink: 0;
+            z-index: 10;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.02);
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--surface-border);
+        }
+
+        .logo-icon {
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, var(--primary), var(--info));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+
+        .logo-text h1 {
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--text-main);
+        }
+
+        .logo-text p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .sidebar-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .sidebar-section-title {
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        .select-input {
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid var(--surface-border);
+            color: var(--text-main);
+            padding: 0.75rem;
+            border-radius: 10px;
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            outline: none;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+
+        .select-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--info) 100%);
+            color: #fff;
+            border: none;
+            padding: 0.8rem;
+            border-radius: 10px;
+            font-family: var(--font-display);
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 15px rgba(0, 175, 90, 0.25);
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 175, 90, 0.45);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        /* Jobs list */
+        .jobs-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            overflow-y: auto;
+            max-height: 350px;
+            padding-right: 0.25rem;
+        }
+
+        .job-item {
+            background: #f8fafc;
+            border: 1px solid var(--surface-border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .job-item:hover {
+            background: #f1f5f9;
+            border-color: rgba(0, 0, 0, 0.12);
+        }
+
+        .job-item.active {
+            background: var(--primary-glow);
+            border-color: var(--primary);
+        }
+
+        .job-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.25rem;
+        }
+
+        .job-item-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .job-item-date {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .job-item-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.4rem;
+        }
+
+        /* Status Badges */
+        .badge {
+            padding: 0.2rem 0.5rem;
+            border-radius: 30px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            border: 1px solid transparent;
+        }
+
+        .badge-queued { background: rgba(0, 0, 0, 0.04); color: var(--text-muted); border-color: var(--surface-border); }
+        .badge-processing_docs { background: var(--info-glow); color: var(--info); border-color: rgba(42, 166, 222, 0.25); }
+        .badge-pending_processor_review { background: var(--warning-glow); color: var(--warning); border-color: rgba(245, 158, 11, 0.25); }
+        .badge-processing_review { background: var(--info-glow); color: var(--info); border-color: rgba(42, 166, 222, 0.25); }
+        .badge-pending_reviewer_approval { background: rgba(167, 139, 250, 0.1); color: #7c3aed; border-color: rgba(167, 139, 250, 0.2); }
+        .badge-completed { background: var(--success-glow); color: var(--success); border-color: rgba(0, 175, 90, 0.2); }
+        .badge-failed { background: var(--danger-glow); color: var(--danger); border-color: rgba(239, 68, 68, 0.2); }
+
+        /* Main Workspace Area */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        header.top-header {
+            background: #ffffff;
+            border-bottom: 1px solid var(--surface-border);
+            padding: 1.25rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.01);
+        }
+
+        .header-info h2 {
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .header-info p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .workspace-content {
+            padding: 2rem;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        /* Tabs Navigation */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            border-bottom: 1px solid var(--surface-border);
+            margin-bottom: 2rem;
+            padding-bottom: 0.5rem;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-family: var(--font-display);
+            font-size: 0.95rem;
+            font-weight: 600;
+            padding: 0.6rem 1.25rem;
+            cursor: pointer;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--primary);
+            background: rgba(0, 175, 90, 0.03);
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            background: var(--primary-glow);
+            border: 1px solid rgba(0, 175, 90, 0.2);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--surface-color);
+            border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            padding: 1.75rem;
+            margin-bottom: 1.75rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+        }
+
+        .card-header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            padding-bottom: 0.75rem;
+        }
+
+        .card-title {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        /* Forms and inputs */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .form-group.full-width {
+            grid-column: span 2;
+        }
+
+        label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .text-input {
+            background: #ffffff;
+            border: 1px solid var(--surface-border);
+            border-radius: 8px;
+            color: var(--text-main);
+            padding: 0.6rem 0.8rem;
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            outline: none;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.01);
+        }
+
+        .text-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 8px var(--primary-glow);
+        }
+
+        /* Timeline / Agent Orchestration */
+        .timeline {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 40px;
+            left: 10%;
+            width: 80%;
+            height: 2px;
+            background: var(--surface-border);
+            z-index: 1;
+        }
+
+        .timeline-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            z-index: 2;
+        }
+
+        .timeline-node {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #f1f5f9;
+            border: 2px solid var(--surface-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+            transition: all 0.3s ease;
+        }
+
+        .timeline-step.active .timeline-node {
+            border-color: var(--primary);
+            background: var(--primary-glow);
+            box-shadow: 0 0 15px var(--primary-glow);
+            color: var(--primary);
+        }
+
+        .timeline-step.completed .timeline-node {
+            border-color: var(--success);
+            background: var(--success-glow);
+            color: #fff;
+        }
+
+        .timeline-label {
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 0.1rem;
+        }
+
+        .timeline-owner {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .owner-badge {
+            background: rgba(0, 0, 0, 0.04);
+            color: var(--text-main);
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+        }
+
+        /* Terminal Logging */
+        .terminal-log {
+            background: #0f172a;
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.82rem;
+            color: #10b981;
+            height: 250px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.8);
+        }
+
+        .terminal-line {
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+
+        .terminal-line.error { color: var(--danger); }
+        .terminal-line.warn { color: var(--warning); }
+        .terminal-line.info { color: var(--info); }
+
+        /* Tables */
+        .table-container {
+            overflow-x: auto;
+            width: 100%;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            padding: 0.8rem 1rem;
+            border-bottom: 1px solid var(--surface-border);
+            background: #f8fafc;
+        }
+
+        td {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.85rem;
+            vertical-align: middle;
+        }
+
+        tr:hover td {
+            background: rgba(0, 0, 0, 0.01);
+        }
+
+        .val-num {
+            font-family: var(--font-display);
+            font-weight: 600;
+            text-align: right;
+        }
+
+        .file-link {
+            color: var(--primary);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-weight: 600;
+            background: rgba(0, 175, 90, 0.05);
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            border: 1px solid rgba(0, 175, 90, 0.12);
+            font-size: 0.75rem;
+        }
+
+        .file-link:hover {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .btn-action {
+            background: #ffffff;
+            border: 1px solid var(--surface-border);
+            color: var(--text-main);
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.78rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        .btn-action:hover {
+            color: #fff;
+            border-color: var(--primary);
+            background: var(--primary);
+        }
+
+        .row-approved {
+            border-left: 3px solid var(--success);
+        }
+
+        .row-suggested {
+            border-left: 3px solid var(--info);
+        }
+
+        /* Lead Schedules Layout */
+        .recon-layout {
+            display: grid;
+            grid-template-columns: 2.2fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Notes board design */
+        .notes-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .note-card {
+            background: #ffffff;
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.01);
+        }
+
+        .note-card-title {
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .note-textarea {
+            width: 100%;
+            height: 120px;
+            background: #f8fafc;
+            border: 1px solid var(--surface-border);
+            border-radius: 8px;
+            color: var(--text-main);
+            padding: 0.5rem;
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            outline: none;
+            resize: none;
+        }
+
+        .note-textarea:focus {
+            border-color: var(--primary);
+        }
+
+        /* Sidebar stats */
+        .stat-card-aside {
+            background: #f8fafc;
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .stat-card-aside-title {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-card-aside-value {
+            font-family: var(--font-display);
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        /* Modal styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal {
+            background: #ffffff;
+            border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            width: 550px;
+            max-width: 90%;
+            padding: 2rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            padding-bottom: 0.5rem;
+        }
+
+        .modal-header h3 {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.4rem;
+            cursor: pointer;
+        }
+
+        .modal-close:hover {
+            color: var(--primary);
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--surface-border);
+            color: var(--text-main);
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        /* Exception Log List */
+        .exceptions-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .exception-item {
+            background: #fef2f2;
+            border: 1px solid #fee2e2;
+            border-radius: 8px;
+            padding: 0.85rem 1rem;
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .exception-item.warning {
+            background: #fffbeb;
+            border: 1px solid #fef3c7;
+        }
+
+        .exception-icon {
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+
+        .exception-content h4 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 0.1rem;
+        }
+
+        .exception-content p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Info box */
+        .info-box {
+            background: var(--primary-glow);
+            border: 1px solid rgba(0, 175, 90, 0.2);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .info-box-icon {
+            font-size: 1.3rem;
+            color: var(--primary);
+        }
+
+        /* Playbook settings table custom input */
+        .playbook-kw-input {
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid var(--surface-border);
+            color: var(--text-main);
+            padding: 0.4rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+
+        .playbook-kw-input:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+
+        .welcome-screen {
+            text-align: center;
+            padding: 5rem 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            background: var(--surface-color);
+            border: 1px solid var(--surface-border);
+            border-radius: 20px;
+        }
+
+        .welcome-icon {
+            font-size: 3.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--info));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .welcome-screen h3 {
+            font-family: var(--font-display);
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .welcome-screen p {
+            max-width: 480px;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* Checkbox items */
+        .check-box-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .check-box-item {
+            background: #f8fafc;
+            border: 1px solid var(--surface-border);
+            border-radius: 6px;
+            padding: 0.6rem 0.8rem;
+            font-size: 0.8rem;
+        }
+
+        .check-box-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+        }
+
+        .check-box-item-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.1rem;
+        }
+
+        .chk-pass { color: var(--success); }
+        .chk-fail { color: var(--danger); }
+        .chk-na { color: var(--text-muted); }
+
+        /* Checklist & Status Badges Styling */
+        .checklist-cat-row {
+            background: rgba(59, 130, 246, 0.05) !important;
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 0.9rem;
+        }
+        .checklist-cat-row td {
+            padding: 0.6rem 1rem !important;
+            border-bottom: 1px solid rgba(59, 130, 246, 0.15) !important;
+        }
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            border: 1px solid transparent;
+        }
+        .status-badge.verified {
+            background: var(--success-glow);
+            color: var(--success);
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+        .status-badge.missing {
+            background: var(--danger-glow);
+            color: var(--danger);
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+        .status-badge.na {
+            background: rgba(255,255,255,0.03);
+            color: var(--text-muted);
+            border-color: var(--surface-border);
+        }
+        .badge-table {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            border: 1px solid transparent;
+        }
+        .badge-verified {
+            background: var(--success-glow);
+            color: var(--success);
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+        .badge-na {
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-muted);
+            border-color: var(--surface-border);
+        }
+
+        @media (max-width: 1024px) {
+            .recon-layout {
+                grid-template-columns: 1fr;
+            }
+            .queries-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Bank Reconciliation & Query Panels */
+        .recon-account-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--surface-border);
+        }
+
+        .recon-account-name {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--text-main);
+        }
+
+        .badge-matched {
+            background: var(--success-glow);
+            color: var(--success);
+            border-color: rgba(0, 175, 90, 0.2);
+        }
+
+        .badge-unmatched {
+            background: var(--danger-glow);
+            color: var(--danger);
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .recon-summary-bar {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .recon-stat {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .recon-stat strong {
+            color: var(--text-main);
+            font-size: 1rem;
+        }
+
+        .queries-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.25rem;
+            margin-bottom: 1.75rem;
+        }
+
+        .query-card {
+            background: var(--surface-color);
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .query-card-category {
+            font-family: var(--font-display);
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .query-card-text {
+            font-size: 0.88rem;
+            color: var(--text-main);
+            line-height: 1.65;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 0.75rem;
+            border: 1px solid var(--surface-border);
+            flex: 1;
+        }
+
+        .query-tx-toggle {
+            background: transparent;
+            border: 1px solid var(--surface-border);
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.3rem 0.65rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: var(--font-sans);
+            align-self: flex-start;
+            transition: all 0.2s ease;
+        }
+
+        .query-tx-toggle:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .query-tx-list {
+            display: none;
+            margin-top: 0.25rem;
+        }
+
+        .query-card-textarea {
+            font-size: 0.88rem;
+            font-family: var(--font-sans);
+            color: var(--text-main);
+            line-height: 1.65;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 0.75rem;
+            border: 1px solid var(--surface-border);
+            flex: 1;
+            resize: vertical;
+            min-height: 6rem;
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color 0.2s ease;
+        }
+
+        .query-card-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .query-card-textarea:disabled {
+            opacity: 0.65;
+            cursor: default;
+            resize: none;
+        }
+
+        .query-card-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            margin-top: 0.25rem;
+        }
+
+        .query-card.query-sent { opacity: 0.7; }
+        .query-card.query-dismissed { opacity: 0.45; }
+
+        .btn-query-send {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 0.4rem 1rem;
+            border-radius: 7px;
+            cursor: pointer;
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 0.82rem;
+            transition: opacity 0.2s;
+        }
+
+        .btn-query-send:hover { opacity: 0.85; }
+
+        .btn-query-dismiss {
+            background: transparent;
+            border: 1px solid var(--surface-border);
+            color: var(--text-muted);
+            padding: 0.4rem 0.85rem;
+            border-radius: 7px;
+            cursor: pointer;
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 0.82rem;
+            transition: all 0.2s;
+        }
+
+        .btn-query-dismiss:hover { border-color: var(--danger); color: var(--danger); }
+
+        .badge-sent {
+            background: var(--success-glow);
+            color: var(--success);
+            border-color: rgba(0, 175, 90, 0.2);
+        }
+
+        .badge-dismissed {
+            background: rgba(100, 116, 139, 0.08);
+            color: var(--text-muted);
+            border-color: rgba(100, 116, 139, 0.15);
+        }
+
+        .queries-view-toggle {
+            display: inline-flex;
+            align-items: center;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+        .queries-view-toggle button {
+            background: none;
+            border: none;
+            padding: 0.3rem 0.75rem;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: background 0.15s, color 0.15s;
+        }
+        .queries-view-toggle button.active {
+            background: var(--primary);
+            color: #fff;
+        }
+        .queries-view-toggle button:not(.active):hover {
+            background: var(--card-bg-hover, rgba(99,102,241,0.06));
+            color: var(--primary);
+        }
+        .query-card.query-granular-sub {
+            border-left: 3px solid rgba(99, 102, 241, 0.3);
+            margin-left: 0.5rem;
+        }
+
+        /* KPI Summary Strip */
+        .kpi-strip {
+            display: flex;
+            gap: 0.5rem 1.25rem;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 1.1rem;
+            padding: 0.8rem 1rem;
+            background: var(--surface-color);
+            border: 1px solid var(--surface-border);
+            border-radius: 10px;
+        }
+        .kpi-stat { display: flex; flex-direction: column; gap: 0.1rem; min-width: 64px; }
+        .kpi-stat-value { font-size: 1.35rem; font-weight: 800; font-family: var(--font-display); color: var(--text-main); line-height: 1; }
+        .kpi-stat-label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.2rem; }
+        .kpi-divider { width: 1px; background: var(--surface-border); align-self: stretch; margin: 0 0.25rem; }
+
+        /* Sub-tab Navigation */
+        .di-sub-nav {
+            display: flex;
+            gap: 0;
+            margin-bottom: 1.25rem;
+            border-bottom: 1px solid var(--surface-border);
+        }
+        .di-sub-btn {
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            padding: 0.55rem 1rem;
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            cursor: pointer;
+            margin-bottom: -1px;
+            transition: color 0.15s, border-color 0.15s;
+            white-space: nowrap;
+        }
+        .di-sub-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+        .di-sub-btn:hover:not(.active) { color: var(--text-main); }
+
+        /* Query Master-Detail Rail */
+        .query-rail-layout {
+            display: flex;
+            gap: 0.75rem;
+            min-height: 380px;
+        }
+        .query-rail-list {
+            flex: 0 0 230px;
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .query-rail-list-header {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--surface-border);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .query-rail-rows { overflow-y: auto; flex: 1; }
+        .query-rail-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 0.75rem;
+            cursor: pointer;
+            border-bottom: 1px solid var(--surface-border);
+            border-left: 2px solid transparent;
+            transition: background 0.1s;
+        }
+        .query-rail-row:hover { background: rgba(99,102,241,0.04); }
+        .query-rail-row.selected { border-left-color: var(--primary); background: rgba(99,102,241,0.06); }
+        .query-rail-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .query-rail-cat { flex: 1; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .query-rail-count { font-size: 0.72rem; color: var(--text-muted); flex-shrink: 0; }
+        .query-rail-detail {
+            flex: 1;
+            min-width: 0;
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            padding: 1rem 1.1rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Collapsible Reconciliation Account Rows */
+        .recon-account-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            cursor: pointer;
+            width: 100%;
+            padding: 0.7rem 0;
+            border: none;
+            border-bottom: 1px solid var(--surface-border);
+            background: none;
+            text-align: left;
+            color: inherit;
+        }
+        .recon-account-toggle:hover { background: rgba(255,255,255,0.02); }
+        .recon-account-expand-icon { font-size: 0.65rem; color: var(--text-muted); flex-shrink: 0; transition: transform 0.2s; }
+        .recon-account-rows-inner { max-height: 320px; overflow-y: auto; }
+
+        @media (max-width: 768px) {
+            .query-rail-layout { flex-direction: column; }
+            .query-rail-list { flex: none; max-height: 220px; }
+            .di-sub-btn { padding: 0.5rem 0.65rem; font-size: 0.75rem; }
+            .kpi-strip { gap: 0.5rem 0.75rem; }
+        }
+
+        /* Story 10 — Fund discovery bar */
+        .discovery-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.55rem 1rem;
+            background: rgba(99, 102, 241, 0.08);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.82rem;
+        }
+        .discovery-bar-text { flex: 1; color: var(--text-main); }
+        .discovery-bar-text strong { color: var(--primary); }
+        .btn-discovery-setup {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 0.32rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: var(--font-display);
+            white-space: nowrap;
+        }
+        .btn-discovery-setup:hover { opacity: 0.88; }
+        .btn-discovery-dismiss {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+            padding: 0 0.15rem;
+        }
+        /* Story 10 — Bootstrap modal */
+        #bootstrap-modal .modal { max-width: 700px; max-height: 88vh; overflow-y: auto; }
+        .bootstrap-folder-card {
+            border: 1px solid var(--surface-border);
+            border-radius: 10px;
+            padding: 1rem 1rem 0.75rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-main);
+        }
+        .bootstrap-folder-card.bs-registered {
+            border-color: #22c55e;
+            background: rgba(34,197,94,0.06);
+        }
+        .bootstrap-mini-input {
+            font-size: 0.8rem;
+            padding: 0.3rem 0.5rem;
+            border-radius: 5px;
+            border: 1px solid var(--surface-border);
+            background: var(--surface-color);
+            color: var(--text-main);
+            width: 100%;
+            box-sizing: border-box;
+            font-family: var(--font-sans);
+        }
+        .bootstrap-mini-input:focus { outline: 1px solid var(--primary); border-color: var(--primary); }
+        .btn-bootstrap-add-row {
+            font-size: 0.72rem;
+            background: none;
+            border: 1px dashed var(--surface-border);
+            color: var(--text-muted);
+            padding: 0.22rem 0.5rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: var(--font-display);
+            font-weight: 600;
+            margin-top: 0.25rem;
+        }
+        .btn-bootstrap-add-row:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-row-del {
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 0.85rem;
+            padding: 0.1rem 0.2rem;
+            line-height: 1;
+            align-self: center;
+        }
+        .bs-warn {
+            background: rgba(245,158,11,0.1);
+            border: 1px solid rgba(245,158,11,0.3);
+            border-radius: 6px;
+            padding: 0.35rem 0.6rem;
+            font-size: 0.75rem;
+            color: #f59e0b;
+            margin-bottom: 0.6rem;
+        }
+        .bs-col-label {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            padding: 0 0.1rem;
+            margin-bottom: 0.15rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- SuperRecords Portal Double Header -->
+    <div class="superrecords-top-bar">
+        <div class="top-bar-left">
+            <span>Need Help? call us now</span>
+            <span style="font-weight: 700; color: #ffffff;">1800 278 737</span>
+        </div>
+        <div class="top-bar-right">
+            <button class="new-request-btn">
+                <span>✉</span> New Request
+            </button>
+            <div class="user-dropdown">
+                <div class="user-avatar">A</div>
+                <span>Andrew</span>
+                <span style="font-size: 0.65rem;">▼</span>
+            </div>
+        </div>
+    </div>
+
+    <header class="superrecords-main-header">
+        <div class="brand-area">
+            <div class="brand-logo-circle">
+                <!-- Checkmark logo -->
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color: white;"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
+            <span class="brand-name">ABC Accounting Inc.</span>
+        </div>
+        
+        <!-- Header Menu Navigation Tabs -->
+        <div class="header-tabs-container">
+            <div class="header-tab tab-btn active" id="tab-btn-docs" onclick="switchTab('docs-tab')">
+                <span class="tab-icon">📋</span>
+                <span class="tab-label">Step 1 - Doc Intel</span>
+            </div>
+            <div class="header-tab tab-btn disabled" id="tab-btn-orch" onclick="switchTab('orch-tab')">
+                <span class="tab-icon">🤖</span>
+                <span class="tab-label">Step 2 - Orchestration &amp; Data Intel</span>
+            </div>
+            <div class="header-tab disabled">
+                <span class="tab-icon">👥</span>
+                <span class="tab-label">Clients</span>
+            </div>
+            <div class="header-tab disabled">
+                <span class="tab-icon">💼</span>
+                <span class="tab-label">Jobs</span>
+            </div>
+            <div class="header-tab disabled">
+                <span class="tab-icon">📑</span>
+                <span class="tab-label">Order Docs</span>
+            </div>
+            <div class="header-tab disabled">
+                <span class="tab-icon">📊</span>
+                <span class="tab-label">Reports</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Body Container -->
+    <div class="main-body-container">
+
+    <!-- Sidebar -->
+    <aside>
+        <div class="logo-area">
+            <span class="logo-icon">▲</span>
+            <div class="logo-text">
+                <h1>SMSF Orchestrator</h1>
+                <p>Doc Intelligence Platform</p>
+            </div>
+        </div>
+
+        <div class="sidebar-section">
+            <span class="sidebar-section-title">Configure Audit Job</span>
+            
+            <div class="form-group">
+                <label for="fund-select">Select Fund</label>
+                <select id="fund-select" class="select-input" onchange="loadActiveFundPlaybook()">
+                    <!-- Dynamic options -->
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="playbook-select">Active Playbook</label>
+                <select id="playbook-select" class="select-input">
+                    <option value="Accounting_Audit">Accounting &amp; Audit (Full)</option>
+                    <option value="Accounting">Accounting (Limited Ledger)</option>
+                </select>
+            </div>
+
+            <button class="btn-primary" onclick="createNewJob()">
+                <span>🚀</span> Run Audit Pipeline
+            </button>
+        </div>
+
+        <div class="sidebar-section" style="margin-top: 1rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="sidebar-section-title">Job Executions</span>
+                <span style="font-size: 0.65rem; color:var(--primary); cursor:pointer; font-weight:700;" onclick="refreshJobsList()">🔄 REFRESH</span>
+            </div>
+            <div class="jobs-list" id="jobs-list-container">
+                <!-- Loaded dynamically -->
+            </div>
+            <div id="fund-cost-summary" style="display:none;margin-top:0.5rem;padding:0.4rem 0.5rem;border-top:1px solid var(--border-color);font-size:0.72rem;color:var(--text-muted);">
+                Fund total: <strong id="fund-cost-total" style="color:var(--text-primary);"></strong>
+                <span id="fund-cost-breakdown"></span>
+            </div>
+        </div>
+
+        <div class="sidebar-section" style="margin-top: auto;">
+            <div class="stat-card-aside">
+                <div class="stat-card-aside-title">Connected Engine</div>
+                <div class="stat-card-aside-value" style="font-size:0.9rem; font-weight:600; color:var(--success); display:flex; align-items:center; gap:0.3rem;">
+                    <span>●</span> OpenRouter x-ai/grok-4.20
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Top Header -->
+        <header class="top-header">
+            <div class="header-info">
+                <h2 id="top-title-fund">No Fund Selected</h2>
+                <p id="top-subtitle-abn">Select or run a job to get started</p>
+            </div>
+            <div class="header-actions" style="display:flex;align-items:center;gap:0.75rem;">
+                <div id="cost-badge-container" style="display:none;text-align:right;line-height:1.2;">
+                    <div style="font-size:0.85rem;font-weight:600;color:var(--text-primary);">
+                        Cost: <span id="cost-badge-value">N/A</span>
+                    </div>
+                    <div id="cost-badge-tokens" style="font-size:0.72rem;color:var(--text-muted);"></div>
+                    <div id="cost-badge-phases" style="font-size:0.70rem;color:var(--text-muted);"></div>
+                </div>
+                <span id="global-status-badge" class="badge badge-queued">● IDLE</span>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Workspace -->
+        <div class="workspace-content">
+
+            <!-- Story 10: Fund Discovery Bar (shown when unregistered folders detected) -->
+            <div id="discovery-bar" class="discovery-bar" style="display:none;">
+                <span class="discovery-bar-text">
+                    <strong id="discovery-count">0</strong> new fund folder(s) detected in <code>data/</code> — set up to include them in processing.
+                </span>
+                <button class="btn-discovery-setup" onclick="openBootstrapModal()">Set up now</button>
+                <button class="btn-discovery-dismiss" onclick="document.getElementById('discovery-bar').style.display='none'" title="Dismiss">✕</button>
+            </div>
+
+            <!-- Default Welcome Screen when no active job is selected -->
+            <div id="welcome-view" class="welcome-screen">
+                <div class="welcome-icon">⚡</div>
+                <h3>Welcome to SMSF Orchestrator</h3>
+                <p>This scaled system enables document classification across multiple funds, custom playbooks, automated reviewer audits, and human-in-the-loop review escalations.</p>
+                <div style="display:flex; gap:1rem; margin-top:0.5rem;">
+                    <span class="badge badge-queued">1. Select a fund</span>
+                    <span class="badge badge-queued">2. Pick a playbook</span>
+                    <span class="badge badge-queued">3. Run the pipeline</span>
+                </div>
+            </div>
+
+            <!-- Main Tab View (only visible when a job is loaded) -->
+            <div id="main-job-view" style="display: none;">
+                
+
+
+                <!-- TAB 1: Document Intelligence -->
+                <div id="docs-tab" class="tab-content active">
+                    <div class="recon-layout">
+                        <!-- Left Column: Classified documents & signoff -->
+                        <div class="docs-left-col">
+                            <div class="info-box" id="docs-info-box">
+                                <span class="info-box-icon">💡</span>
+                                <div>
+                                    <strong>Step 1 - Document Intelligence:</strong> Review the AI-suggested categories and extracted metadata. You can click <strong>Override / Edit</strong> to correct any AI suggestions, add processor comments, and sign off below. Submitting will create the finalized documents in the <code>workpaper</code> directory.
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="card-header-flex">
+                                    <span class="card-title">Classified Audit Workpapers</span>
+                                    <span id="docs-reviewed-count" style="font-size:0.8rem; color:var(--text-muted);">0 of 0 approved</span>
+                                </div>
+                                <div class="table-container">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Original File</th>
+                                                <th>Classified Target Name</th>
+                                                <th>Playbook Category</th>
+                                                <th>Extracted Metadata</th>
+                                                <th>Verification Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="docs-table-tbody">
+                                            <!-- Populated dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Unprocessed/Errors section -->
+                            <div class="card" id="unprocessed-files-card" style="display: none; border-color: rgba(239, 68, 68, 0.2); background: rgba(239, 68, 68, 0.01);">
+                                <span class="card-title" style="color:var(--danger); display:flex; align-items:center; gap:0.4rem;">
+                                    <span>⚠️</span> Non-PDF or Failed File Exceptions
+                                </span>
+                                <div class="table-container" style="margin-top: 1rem;">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Filename</th>
+                                                <th>Source Path</th>
+                                                <th>Exception Reason</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="unprocessed-table-tbody">
+                                            <!-- Dynamic -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Processor Sign-off Card -->
+                            <div class="card" id="processor-signoff-card">
+                                <span class="card-title">Human Processor Sign-off Escalation</span>
+                                <div class="form-group full-width" style="margin: 1rem 0;">
+                                    <label for="processor-notes-input">Processor Notes &amp; Escalation Comments</label>
+                                    <textarea id="processor-notes-input" class="note-textarea" placeholder="Add any ledger discrepancies, missing client details, or bookkeeping issues noted..."></textarea>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <p style="font-size:0.8rem; color:var(--text-muted);">Submitting processor review compiles approved files and triggers the AI Reviewer Agent to calculate financial lead schedules.</p>
+                                    <button class="btn-primary" id="btn-processor-signoff" onclick="submitProcessorReview()">
+                                        ✍️ Submit Processor Sign-Off
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Playbook Keyword Configurations (Reference Rules) -->
+                        <div class="playbook-right-col">
+                            <div class="card">
+                                <div class="card-header-flex" style="flex-direction: column; align-items: flex-start; gap: 0.5rem;">
+                                    <span class="card-title" id="playbook-manager-title">Playbook Manager</span>
+                                    <p style="font-size: 0.8rem; color: var(--text-muted);" id="playbook-manager-subtitle">Define customized keywords used by AI during Document Classification for the playbook</p>
+                                </div>
+
+                                <div class="table-container" style="max-height: 600px; overflow-y: auto; padding-right: 0.25rem;">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Playbook Category</th>
+                                                <th>Keywords / Matching Rules</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="playbook-rules-tbody">
+                                            <!-- Dynamic rows of text inputs -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div style="margin-top: 1.5rem;">
+                                    <button class="btn-primary" onclick="savePlaybookConfig()" style="width: 100%; font-size:0.85rem; padding:0.6rem;">
+                                        💾 Save Playbook Changes
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: Agent Orchestration & Data Intelligence -->
+                <div id="orch-tab" class="tab-content">
+
+                    <!-- Locked View (if Phase 2 hasn't run) -->
+                    <div id="data-intelligence-locked" class="welcome-screen" style="padding: 3rem 1rem;">
+                        <div class="welcome-icon">🔒</div>
+                        <h3>Financial Reconciliation Locked</h3>
+                        <p>Document checklist status, lead schedules, and audit calculations will populate here once the <strong>AI Reviewer Agent</strong> executes reconciliations (after Human Processor sign-off).</p>
+                    </div>
+
+                    <!-- Unlocked View (populates on Phase 2 completion) -->
+                    <div id="data-intelligence-unlocked" style="display:none;">
+
+                        <!-- Persistent Workflow Stepper -->
+                        <div class="card" style="margin-bottom:1rem;">
+                            <div class="card-header-flex">
+                                <span class="card-title">Active Orchestration Flow</span>
+                                <span id="orchestration-progress-text" style="font-size:0.85rem; font-weight:700; color:var(--primary);">0%</span>
+                            </div>
+                            <div class="timeline">
+                                <div class="timeline-step" id="timeline-step-1">
+                                    <div class="timeline-node">🤖</div>
+                                    <span class="timeline-label">AI Processor</span>
+                                    <span class="timeline-owner"><span class="owner-badge">AI Agent</span></span>
+                                </div>
+                                <div class="timeline-step" id="timeline-step-2">
+                                    <div class="timeline-node">✍️</div>
+                                    <span class="timeline-label">Human Processor</span>
+                                    <span class="timeline-owner"><span class="owner-badge" style="background:var(--warning-glow); color:var(--warning)">Human HITL</span></span>
+                                </div>
+                                <div class="timeline-step" id="timeline-step-3">
+                                    <div class="timeline-node">🔍</div>
+                                    <span class="timeline-label">AI Reviewer</span>
+                                    <span class="timeline-owner"><span class="owner-badge">AI Agent</span></span>
+                                </div>
+                                <div class="timeline-step" id="timeline-step-4">
+                                    <div class="timeline-node">🔑</div>
+                                    <span class="timeline-label">Human Reviewer</span>
+                                    <span class="timeline-owner"><span class="owner-badge" style="background:var(--success-glow); color:var(--success)">Human Sign-off</span></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- KPI Summary Strip -->
+                        <div class="kpi-strip" id="kpi-strip"></div>
+
+                        <!-- Sub-tab Navigation -->
+                        <div class="di-sub-nav">
+                            <button class="di-sub-btn active" onclick="switchDiTab('recon-queries')">Reconciliation &amp; Queries</button>
+                            <button class="di-sub-btn" onclick="switchDiTab('lead-schedules')">Lead Schedules</button>
+                            <button class="di-sub-btn" onclick="switchDiTab('compliance')">Compliance</button>
+                            <button class="di-sub-btn" onclick="switchDiTab('agent-logs')">Agent Logs</button>
+                        </div>
+
+                        <!-- TAB PANE: Reconciliation & Queries -->
+                        <div class="di-sub-pane" id="di-tab-recon-queries">
+
+                            <!-- Bank Transaction Reconciliation Panel -->
+                            <div id="reconciliation-panel" style="display:none; margin-bottom:1.75rem;">
+                                <div class="card">
+                                    <div class="card-header-flex">
+                                        <span class="card-title">Bank Transaction Reconciliation</span>
+                                        <div class="recon-summary-bar" id="recon-summary-bar"></div>
+                                    </div>
+                                    <div id="recon-accounts-container">
+                                        <!-- Collapsible account sections rendered dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Client Query Rail Panel -->
+                            <div id="client-queries-panel" style="display:none; margin-bottom:1.75rem;">
+                                <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem; flex-wrap:wrap;">
+                                    <span style="font-family:var(--font-display); font-size:1.05rem; font-weight:700; color:var(--text-main);">Client Queries</span>
+                                    <span id="queries-count-badge" class="badge badge-pending_reviewer_approval"></span>
+                                    <div class="queries-view-toggle" id="queries-view-toggle" style="display:none; margin-left:auto;">
+                                        <button id="btn-coarse-view" class="active" onclick="setQueryView('coarse')">Summary</button>
+                                        <button id="btn-granular-view" onclick="setQueryView('granular')">Per Security</button>
+                                    </div>
+                                </div>
+                                <div class="query-rail-layout">
+                                    <div class="query-rail-list">
+                                        <div class="query-rail-list-header">Groups</div>
+                                        <div class="query-rail-rows" id="query-rail-rows"></div>
+                                    </div>
+                                    <div class="query-rail-detail" id="query-rail-detail">
+                                        <p style="color:var(--text-muted); font-size:0.85rem; margin:0;">Select a group to view details.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Final Audit Completion Sign-off Card -->
+                            <div class="card" style="margin-top: 1.5rem;" id="reviewer-signoff-card">
+                                <span class="card-title">Human Auditor &amp; Reviewer Final sign-off</span>
+                                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">Submit final review to sign off the financial ledger. This action marks the job as <strong>Completed</strong>.</p>
+                                <div style="display:flex; justify-content:flex-end;">
+                                    <button class="btn-primary" onclick="submitFinalReview()">
+                                        🛡️ Complete Job &amp; Sign-Off Report
+                                    </button>
+                                </div>
+                            </div>
+
+                        </div><!-- end di-tab-recon-queries -->
+
+                        <!-- TAB PANE: Lead Schedules -->
+                        <div class="di-sub-pane" id="di-tab-lead-schedules" style="display:none;">
+
+                            <div class="recon-layout">
+                                <div class="card" style="margin-bottom: 0;">
+                                    <div class="card-header-flex">
+                                        <span class="card-title">Cash Lead Schedule</span>
+                                        <span style="font-size:0.8rem; color:var(--text-muted);" id="cash-reconciled-time">As of 30 June 2025</span>
+                                    </div>
+                                    <div class="table-container">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>Account Name &amp; Number</th>
+                                                    <th>BSB</th>
+                                                    <th class="val-num">Opening Bal (1 Jul 24)</th>
+                                                    <th class="val-num">Closing Bal (30 Jun 25)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="cash-tbody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="card" style="margin-bottom: 0;">
+                                    <span class="card-title">Cash Verification Checks</span>
+                                    <div class="check-box-list" id="cash-checks-list"></div>
+                                </div>
+                            </div>
+
+                            <div class="recon-layout">
+                                <div class="card" style="margin-bottom: 0;">
+                                    <div class="card-header-flex">
+                                        <span class="card-title">Securities Portfolio Valuation</span>
+                                        <span style="font-size:0.8rem; color:var(--text-muted);">SIS Reg 8.02B Market Valuation Check</span>
+                                    </div>
+                                    <div class="table-container">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>Asset Period</th>
+                                                    <th class="val-num">Total Cost ($)</th>
+                                                    <th class="val-num">Market Value ($)</th>
+                                                    <th class="val-num">Est. Annual Income ($)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="portfolio-tbody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="card" style="margin-bottom: 0;">
+                                    <span class="card-title" id="mxt-recon-header-title">MXT Registry Check</span>
+                                    <div class="check-box-list">
+                                        <div class="check-box-item">
+                                            <div class="check-box-item-header">
+                                                <span style="font-weight:600;">Pricing Variance Check</span>
+                                                <span class="chk-fail" id="mxt-variance-badge">Variance</span>
+                                            </div>
+                                            <div class="check-box-item-desc" id="mxt-variance-text">Reconciling MXT Registry NAV vs Ledger...</div>
+                                        </div>
+                                        <div class="check-box-item">
+                                            <div class="check-box-item-header">
+                                                <span style="font-weight:600;">Managed Fund Distributions</span>
+                                                <span class="chk-pass">Pass</span>
+                                            </div>
+                                            <div class="check-box-item-desc" id="mxt-distribution-text">Income distributions matched across tax statement...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="recon-layout" style="margin-top: 1.5rem;">
+                                <div class="card" style="margin-bottom: 0;">
+                                    <span class="card-title">ATO Tax Reconciliation Ledger</span>
+                                    <div class="table-container">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>ATO Account Ledger</th>
+                                                    <th class="val-num">Balance 30-Jun-25 ($)</th>
+                                                    <th>Reconciliation Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="tax-tbody"></tbody>
+                                        </table>
+                                    </div>
+                                    <div style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);" id="tax-return-outstanding-text">
+                                        Outstanding Returns: FY25 - Outstanding.
+                                    </div>
+                                </div>
+                                <div class="card" style="margin-bottom: 0;">
+                                    <span class="card-title">Member Total Superannuation Balance (TSB)</span>
+                                    <div style="display:flex; flex-direction:column; gap:0.5rem; font-size:0.82rem;">
+                                        <div style="display:flex; justify-content:space-between;">
+                                            <span style="color:var(--text-muted);">Member Name:</span>
+                                            <strong id="member-name-text" style="color:#fff;">Andrea Martignoni</strong>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between;">
+                                            <span style="color:var(--text-muted);">Tax File Number (TFN):</span>
+                                            <strong id="member-tfn-text">139 809 744</strong>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; margin-top:0.3rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top:0.3rem;">
+                                            <span style="color:var(--text-muted);">FY24 Audited TSB:</span>
+                                            <strong id="member-tsb-2024-text">$2,159,140.32</strong>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between;">
+                                            <span style="color:var(--text-muted);">FY25 ATO Ledger TSB:</span>
+                                            <strong id="member-tsb-2025-text" style="color:var(--warning);">$8,680.99</strong>
+                                        </div>
+                                        <div style="background:rgba(245,158,11,0.05); border: 1px solid rgba(245,158,11,0.15); padding:0.5rem; border-radius:6px; font-size:0.75rem; margin-top:0.25rem;" id="member-finding-desc">
+                                            discrepancy notes here
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div><!-- end di-tab-lead-schedules -->
+
+                        <!-- TAB PANE: Compliance -->
+                        <div class="di-sub-pane" id="di-tab-compliance" style="display:none;">
+
+                            <div class="card">
+                                <div class="card-header-flex">
+                                    <span class="card-title">Document Audit Checklist Verification</span>
+                                    <span id="checklist-summary-badge" class="status-badge verified">0 of 0 verified</span>
+                                </div>
+                                <div class="table-container">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Checklist Category</th>
+                                                <th>Required Document Item</th>
+                                                <th>Verification Status</th>
+                                                <th>Attached Files (in workpapers/)</th>
+                                                <th>AI Auditor Comments / Notes</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="checklist-table-tbody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="notes-board">
+                                <div class="note-card" style="border-top: 3px solid var(--warning);">
+                                    <span class="note-card-title">✍️ Processor Escalation Notes</span>
+                                    <textarea id="board-processor-notes" class="note-textarea" readonly></textarea>
+                                </div>
+                                <div class="note-card" style="border-top: 3px solid var(--info);">
+                                    <span class="note-card-title">🔍 AI Reviewer Notes</span>
+                                    <textarea id="board-reviewer-notes" class="note-textarea" placeholder="AI reviewer recommendations will appear here..."></textarea>
+                                </div>
+                                <div class="note-card" style="border-top: 3px solid var(--success);">
+                                    <span class="note-card-title">🛡️ Auditor Exceptions Log</span>
+                                    <div style="flex:1; overflow-y:auto; max-height:120px;" id="board-auditor-exceptions"></div>
+                                </div>
+                            </div>
+
+                        </div><!-- end di-tab-compliance -->
+
+                        <!-- TAB PANE: Agent Logs -->
+                        <div class="di-sub-pane" id="di-tab-agent-logs" style="display:none;">
+                            <div class="card">
+                                <div class="card-header-flex">
+                                    <span class="card-title">Agent Execution Logs</span>
+                                    <span style="font-size:0.8rem; color:var(--success); font-family:monospace;">antigravity_core_shell</span>
+                                </div>
+                                <div class="terminal-log" id="terminal-log-container"></div>
+                            </div>
+                        </div><!-- end di-tab-agent-logs -->
+
+                    </div><!-- end data-intelligence-unlocked -->
+                </div><!-- end orch-tab -->
+
+            </div>
+
+        </div>
+    </main>
+    </div> <!-- Close .main-body-container -->
+
+    <!-- HITL Document Override Modal -->
+    <div class="modal-overlay" id="override-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Override Document Classification</h3>
+                <button class="modal-close" onclick="closeOverrideModal()">×</button>
+            </div>
+            
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label for="modal-filename">Selected File</label>
+                    <input type="text" id="modal-filename" class="text-input" readonly style="background:rgba(255,255,255,0.02)">
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="modal-category">Correct Category</label>
+                    <select id="modal-category" class="select-input">
+                        <!-- Dynamic list of playbook categories -->
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="modal-accnum">Bank Account Number (If statement)</label>
+                    <input type="text" id="modal-accnum" class="text-input" placeholder="e.g. 06716720642566">
+                </div>
+
+                <div class="form-group">
+                    <label for="modal-amount">Amount (If Accountancy / Invoice)</label>
+                    <input type="text" id="modal-amount" class="text-input" placeholder="e.g. 270.41">
+                </div>
+
+                <div class="form-group">
+                    <label for="modal-date">Valuation Date (If Portfolio Valuation)</label>
+                    <input type="text" id="modal-date" class="text-input" placeholder="e.g. 30.06.25">
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="modal-notes">Processor Review Notes</label>
+                    <input type="text" id="modal-notes" class="text-input" placeholder="Add notes for auditor regarding values, missing parts, or changes...">
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeOverrideModal()">Cancel</button>
+                <button class="btn-primary" onclick="saveFileOverride()">Save Changes &amp; Approve</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Send Query Confirmation Modal -->
+    <div class="modal-overlay" id="send-query-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Confirm &amp; Send Query</h3>
+                <button class="modal-close" onclick="closeSendQueryModal()">×</button>
+            </div>
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label for="send-query-recipient">Recipient (placeholder)</label>
+                    <input type="text" id="send-query-recipient" class="text-input" placeholder="e.g. trustee@example.com">
+                </div>
+                <div class="form-group full-width">
+                    <label>Query Text (preview)</label>
+                    <textarea id="send-query-preview" class="text-input" rows="6" readonly style="resize:none; background:rgba(0,0,0,0.02); font-size:0.88rem; line-height:1.6;"></textarea>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeSendQueryModal()">Cancel</button>
+                <button class="btn-primary" onclick="confirmSendQuery()">Confirm Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Story 10: Fund Bootstrap Modal -->
+    <div class="modal-overlay" id="bootstrap-modal" style="display:none;">
+        <div class="modal" style="max-width:700px; max-height:88vh; overflow-y:auto;">
+            <div class="modal-header">
+                <h3>Set Up New Fund(s)</h3>
+                <button class="modal-close" onclick="closeBootstrapModal()">×</button>
+            </div>
+            <div id="bootstrap-modal-body" style="padding:0 0 0.5rem;">
+                <!-- Populated by openBootstrapModal() / renderBootstrapCards() -->
+            </div>
+            <div class="modal-actions" id="bootstrap-modal-actions" style="display:none;">
+                <button class="btn-secondary" onclick="closeBootstrapModal()">Close</button>
+                <button class="btn-primary" onclick="registerAllBootstrapFunds()">Register All</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating background decorations -->
+    <div class="floating-decoration bubble-percent">%</div>
+    <div class="floating-decoration bubble-like">👍</div>
+    <div class="floating-decoration bubble-shield">
+        <svg viewBox="0 0 24 24" width="90" height="110" fill="#00AF5A" style="filter: drop-shadow(0 8px 25px rgba(0,175,90,0.25));">
+            <path d="M12 2L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-3z" />
+            <path d="M12 8a3 3 0 00-3 3v2h6v-2a3 3 0 00-3-3zm-3 5h6v5H9v-5z" fill="white" />
+        </svg>
+    </div>
+
+    <!-- Script Section -->
+    <script>
+        let funds = [];
+        let jobs = [];
+        let activeJob = null;
+        let selectedFileIndex = null;
+        let pollingInterval = null;
+
+        // Story 10 — fund bootstrap state
+        let _discoveredFolders = [];
+        let _bootstrapProposals = [];
+
+        // On document load
+        window.addEventListener('load', () => {
+            fetchFunds();
+            fetchJobs();
+            // Start regular refresh of executions list
+            setInterval(fetchJobs, 10000);
+        });
+
+        function fetchFunds() {
+            fetch('/api/funds')
+                .then(res => res.json())
+                .then(data => {
+                    funds = data;
+                    populateFundDropdown();
+                    loadActiveFundPlaybook();
+                    checkForNewFunds();
+                })
+                .catch(err => console.error("Error loading funds list:", err));
+        }
+
+        // ── Story 10: Fund bootstrap helpers ─────────────────────────────────
+
+        function checkForNewFunds() {
+            fetch('/api/funds/discover')
+                .then(r => r.json())
+                .then(folders => {
+                    _discoveredFolders = folders;
+                    const bar = document.getElementById('discovery-bar');
+                    if (folders.length > 0) {
+                        document.getElementById('discovery-count').textContent = folders.length;
+                        bar.style.display = 'flex';
+                    } else {
+                        bar.style.display = 'none';
+                    }
+                })
+                .catch(() => { /* silently suppress — data/ may not exist */ });
+        }
+
+        function openBootstrapModal() {
+            _bootstrapProposals = [];
+            document.getElementById('bootstrap-modal-actions').style.display = 'none';
+            const body = document.getElementById('bootstrap-modal-body');
+            body.innerHTML = _discoveredFolders.map(f => `
+                <div style="display:flex; align-items:center; gap:0.6rem; padding:0.6rem 0; border-bottom:1px solid var(--surface-border);">
+                    <span style="font-family:var(--font-display); font-weight:700;">${_esc(f.folder_name)}</span>
+                    <span style="font-size:0.72rem; color:var(--text-muted);">${f.pdf_count} PDF${f.pdf_count !== 1 ? 's' : ''}</span>
+                </div>
+            `).join('') + `
+                <div style="text-align:center; padding:1.25rem 0 0.25rem;">
+                    <button class="btn-primary" id="btn-scan-all" onclick="scanAllFolders()">Scan &amp; Propose Config</button>
+                    <div style="font-size:0.74rem; color:var(--text-muted); margin-top:0.45rem;">The AI will read each folder&rsquo;s documents and extract fund details.</div>
+                </div>`;
+            document.getElementById('bootstrap-modal').style.display = 'flex';
+        }
+
+        function closeBootstrapModal() {
+            document.getElementById('bootstrap-modal').style.display = 'none';
+        }
+
+        async function scanAllFolders() {
+            const scanBtn = document.getElementById('btn-scan-all');
+            if (scanBtn) { scanBtn.disabled = true; scanBtn.textContent = 'Scanning…'; }
+            const body = document.getElementById('bootstrap-modal-body');
+            body.innerHTML = `<div style="text-align:center; padding:2.5rem 1rem; color:var(--text-muted);">
+                <div style="font-size:1.6rem; margin-bottom:0.6rem;">🔍</div>
+                <div style="font-weight:600; margin-bottom:0.25rem;">Reading documents…</div>
+                <div style="font-size:0.78rem;">Extracting fund details via AI — this may take 15–30s per folder.</div>
+            </div>`;
+            try {
+                const resp = await fetch('/api/funds/bootstrap', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ folders: _discoveredFolders.map(f => f.folder_path) })
+                });
+                if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+                _bootstrapProposals = await resp.json();
+                renderBootstrapCards();
+                document.getElementById('bootstrap-modal-actions').style.display = 'flex';
+            } catch (e) {
+                body.innerHTML = `<div style="color:#ef4444; padding:1rem 0;">Scan failed: ${_esc(e.message)}</div>
+                    <div style="margin-top:0.5rem;"><button class="btn-secondary" onclick="openBootstrapModal()">Retry</button></div>`;
+            }
+        }
+
+        function _esc(s) {
+            return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function _bsAcctRow(a) {
+            return `<div class="bootstrap-acct-row" style="display:grid; grid-template-columns:2fr 2fr 1.2fr 1.6rem; gap:0.3rem; margin-bottom:0.25rem;">
+                <input class="bootstrap-mini-input" data-field="name" value="${_esc(a.name)}" placeholder="Account name">
+                <input class="bootstrap-mini-input" data-field="number" value="${_esc(a.number)}" placeholder="Account #">
+                <input class="bootstrap-mini-input" data-field="bsb" value="${_esc(a.bsb)}" placeholder="BSB">
+                <button class="btn-row-del" onclick="this.closest('.bootstrap-acct-row').remove()" title="Remove">✕</button>
+            </div>`;
+        }
+
+        function _bsMemberRow(m) {
+            return `<div class="bootstrap-mem-row" style="display:grid; grid-template-columns:2fr 2fr 1fr 1fr 1.6rem; gap:0.3rem; margin-bottom:0.25rem;">
+                <input class="bootstrap-mini-input" data-field="name" value="${_esc(m.name)}" placeholder="Member name">
+                <input class="bootstrap-mini-input" data-field="tfn" value="${_esc(m.tfn)}" placeholder="TFN">
+                <input class="bootstrap-mini-input" data-field="prior" value="${m.prior_year_tsb || 0}" placeholder="Prior TSB">
+                <input class="bootstrap-mini-input" data-field="current" value="${m.current_year_tsb || 0}" placeholder="Current TSB">
+                <button class="btn-row-del" onclick="this.closest('.bootstrap-mem-row').remove()" title="Remove">✕</button>
+            </div>`;
+        }
+
+        function renderBootstrapCards() {
+            const body = document.getElementById('bootstrap-modal-body');
+            body.innerHTML = _bootstrapProposals.map((result, idx) => {
+                const p = result.proposed;
+                const folder = _discoveredFolders[idx] || {};
+                const warn = result.warning
+                    ? `<div class="bs-warn">⚠ ${_esc(result.warning)}</div>`
+                    : '';
+                const acctRows = (p.bank_accounts || []).map(a => _bsAcctRow(a)).join('');
+                const memberRows = (p.members || []).map(m => _bsMemberRow(m)).join('');
+                return `
+                <div class="bootstrap-folder-card" id="bs-card-${idx}">
+                    <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem; flex-wrap:wrap;">
+                        <span style="font-family:var(--font-display); font-weight:700; font-size:1rem;">${_esc(folder.folder_name || '')}</span>
+                        <span style="font-size:0.7rem; background:rgba(99,102,241,0.12); color:var(--primary); padding:0.15rem 0.5rem; border-radius:4px; font-family:monospace;">${_esc(p.id)}</span>
+                        <button class="btn-primary" style="margin-left:auto; font-size:0.75rem; padding:0.28rem 0.75rem;" onclick="registerBootstrapFund(${idx})">Register</button>
+                    </div>
+                    ${warn}
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:0.75rem;">
+                        <div>
+                            <div class="bs-col-label">Fund Name</div>
+                            <input class="bootstrap-mini-input" id="bs-${idx}-name" value="${_esc(p.name)}">
+                        </div>
+                        <div>
+                            <div class="bs-col-label">ABN</div>
+                            <input class="bootstrap-mini-input" id="bs-${idx}-abn" value="${_esc(p.abn)}">
+                        </div>
+                    </div>
+                    <div style="margin-bottom:0.65rem;">
+                        <div class="bs-col-label" style="font-weight:700; margin-bottom:0.3rem;">Bank Accounts</div>
+                        <div style="display:grid; grid-template-columns:2fr 2fr 1.2fr 1.6rem; gap:0.3rem; margin-bottom:0.2rem;">
+                            <span class="bs-col-label">Name</span><span class="bs-col-label">Account #</span><span class="bs-col-label">BSB</span><span></span>
+                        </div>
+                        <div id="bs-${idx}-accounts">${acctRows}</div>
+                        <button class="btn-bootstrap-add-row" onclick="_bsAddAcct(${idx})">+ Add account</button>
+                    </div>
+                    <div>
+                        <div class="bs-col-label" style="font-weight:700; margin-bottom:0.3rem;">Members</div>
+                        <div style="display:grid; grid-template-columns:2fr 2fr 1fr 1fr 1.6rem; gap:0.3rem; margin-bottom:0.2rem;">
+                            <span class="bs-col-label">Name</span><span class="bs-col-label">TFN</span><span class="bs-col-label">Prior TSB</span><span class="bs-col-label">Current TSB</span><span></span>
+                        </div>
+                        <div id="bs-${idx}-members">${memberRows}</div>
+                        <button class="btn-bootstrap-add-row" onclick="_bsAddMember(${idx})">+ Add member</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function _bsAddAcct(idx) {
+            const el = document.createElement('div');
+            el.innerHTML = _bsAcctRow({name:'',number:'',bsb:''});
+            document.getElementById(`bs-${idx}-accounts`).appendChild(el.firstElementChild);
+        }
+
+        function _bsAddMember(idx) {
+            const el = document.createElement('div');
+            el.innerHTML = _bsMemberRow({name:'',tfn:'',prior_year_tsb:0,current_year_tsb:0});
+            document.getElementById(`bs-${idx}-members`).appendChild(el.firstElementChild);
+        }
+
+        function _readBsCard(idx) {
+            const p = _bootstrapProposals[idx].proposed;
+            const bankAccounts = [];
+            document.querySelectorAll(`#bs-${idx}-accounts .bootstrap-acct-row`).forEach(row => {
+                const name = row.querySelector('[data-field="name"]')?.value || '';
+                const number = row.querySelector('[data-field="number"]')?.value || '';
+                const bsb = row.querySelector('[data-field="bsb"]')?.value || '';
+                if (name || number) bankAccounts.push({ name, number, bsb });
+            });
+            const members = [];
+            document.querySelectorAll(`#bs-${idx}-members .bootstrap-mem-row`).forEach(row => {
+                const name = row.querySelector('[data-field="name"]')?.value || '';
+                const tfn = row.querySelector('[data-field="tfn"]')?.value || '';
+                const prior = parseFloat(row.querySelector('[data-field="prior"]')?.value || '0') || 0;
+                const current = parseFloat(row.querySelector('[data-field="current"]')?.value || '0') || 0;
+                if (name) members.push({ name, tfn, prior_year_tsb: prior, current_year_tsb: current });
+            });
+            return {
+                id: p.id,
+                name: document.getElementById(`bs-${idx}-name`)?.value || '',
+                abn: document.getElementById(`bs-${idx}-abn`)?.value || '',
+                folder_path: p.folder_path,
+                bank_accounts: bankAccounts,
+                members,
+                keywords: p.keywords,
+            };
+        }
+
+        async function registerBootstrapFund(idx) {
+            const fund = _readBsCard(idx);
+            const card = document.getElementById(`bs-card-${idx}`);
+            const regBtn = card?.querySelector('.btn-primary');
+            if (regBtn) { regBtn.disabled = true; regBtn.textContent = 'Registering…'; }
+            try {
+                const resp = await fetch('/api/funds', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(fund),
+                });
+                if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+                if (card) {
+                    card.classList.add('bs-registered');
+                    card.innerHTML = `<div style="display:flex; align-items:center; gap:0.6rem; padding:0.15rem 0;">
+                        <span style="color:#22c55e; font-size:1.1rem;">✓</span>
+                        <strong style="color:#22c55e;">${_esc(fund.name || fund.id)}</strong>
+                        <span style="font-size:0.8rem; color:var(--text-muted);">registered</span>
+                    </div>`;
+                }
+                // Refresh fund dropdown and hide discovery bar
+                fetch('/api/funds').then(r => r.json()).then(data => {
+                    funds = data;
+                    populateFundDropdown();
+                    loadActiveFundPlaybook();
+                });
+                // Update discovery bar count
+                _discoveredFolders = _discoveredFolders.filter(f => f.folder_path !== fund.folder_path);
+                if (_discoveredFolders.length === 0) {
+                    document.getElementById('discovery-bar').style.display = 'none';
+                } else {
+                    document.getElementById('discovery-count').textContent = _discoveredFolders.length;
+                }
+            } catch (e) {
+                if (regBtn) { regBtn.disabled = false; regBtn.textContent = 'Register'; }
+                alert(`Registration failed: ${e.message}`);
+            }
+        }
+
+        async function registerAllBootstrapFunds() {
+            for (let i = 0; i < _bootstrapProposals.length; i++) {
+                const card = document.getElementById(`bs-card-${i}`);
+                if (card && !card.classList.contains('bs-registered')) {
+                    await registerBootstrapFund(i);
+                }
+            }
+        }
+
+        function populateFundDropdown() {
+            const select = document.getElementById("fund-select");
+            select.innerHTML = "";
+            funds.forEach(fund => {
+                const opt = document.createElement("option");
+                opt.value = fund.id;
+                opt.textContent = fund.name;
+                select.appendChild(opt);
+            });
+        }
+
+        function fetchJobs() {
+            fetch('/api/jobs')
+                .then(res => res.json())
+                .then(data => {
+                    jobs = data;
+                    renderJobsList();
+                })
+                .catch(err => console.error("Error listing jobs:", err));
+        }
+
+        function renderJobsList() {
+            const container = document.getElementById("jobs-list-container");
+            container.innerHTML = "";
+            
+            if (jobs.length === 0) {
+                container.innerHTML = `<div style="text-align:center; font-size:0.75rem; color:var(--text-muted); padding:1rem;">No historical jobs found.</div>`;
+                return;
+            }
+
+            jobs.forEach(job => {
+                const div = document.createElement("div");
+                div.className = `job-item ${activeJob && activeJob.job_id === job.job_id ? 'active' : ''}`;
+                div.onclick = () => selectJob(job.job_id);
+
+                let statusText = job.status.replace("_", " ").toUpperCase();
+                const tu = job.token_usage;
+                const costStr = tu && tu.job_total
+                    ? `$${tu.job_total.cost_usd.toFixed(3)}`
+                    : 'N/A';
+                div.innerHTML = `
+                    <div class="job-item-header">
+                        <span class="job-item-title">${job.fund_name}</span>
+                        <span class="job-item-date">${job.created_at.split(" ")[1]}</span>
+                    </div>
+                    <div class="job-item-desc">${job.job_type.replace("_", " & ")}</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:0.2rem;">
+                        <span class="badge badge-${job.status}">● ${statusText}</span>
+                        <span style="font-size:0.70rem;color:var(--text-muted);">${costStr}</span>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            renderFundCostSummary();
+        }
+
+        function selectJob(jobId) {
+            fetch(`/api/jobs/${jobId}/details`)
+                .then(res => res.json())
+                .then(job => {
+                    activeJob = job;
+                    renderJobsList(); // refresh active highlight
+                    updateJobUIState();
+                    
+                    // If job is processing, set up polling
+                    if (job.status === "processing_docs" || job.status === "processing_review") {
+                        startPolling(job.job_id);
+                    } else {
+                        stopPolling();
+                    }
+                })
+                .catch(err => console.error("Error loading job details:", err));
+        }
+
+        function startPolling(jobId) {
+            stopPolling();
+            pollingInterval = setInterval(() => {
+                fetch(`/api/jobs/${jobId}/details`)
+                    .then(res => res.json())
+                    .then(job => {
+                        if (activeJob && activeJob.job_id === jobId) {
+                            activeJob = job;
+                            updateJobUIState();
+                        }
+                        if (job.status !== "processing_docs" && job.status !== "processing_review") {
+                            stopPolling();
+                            fetchJobs(); // refresh list to update badge
+                        }
+                    });
+            }, 3000);
+        }
+
+        function stopPolling() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+        }
+
+        function refreshJobsList() {
+            fetchJobs();
+            if (activeJob) {
+                selectJob(activeJob.job_id);
+            }
+        }
+
+        function createNewJob() {
+            const fundId = document.getElementById("fund-select").value;
+            const jobType = document.getElementById("playbook-select").value;
+
+            fetch('/api/jobs/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fund_id: fundId, job_type: jobType })
+            })
+            .then(res => res.json())
+            .then(res => {
+                fetchJobs();
+                selectJob(res.job_id);
+                switchTab('orch-tab'); // jump to timeline to show progress
+            })
+            .catch(err => console.error("Error initiating audit job:", err));
+        }
+
+        function renderCostBadge() {
+            const container = document.getElementById('cost-badge-container');
+            if (!activeJob) {
+                container.style.display = 'none';
+                return;
+            }
+            container.style.display = 'block';
+            const tu = activeJob.token_usage;
+            if (!tu) {
+                document.getElementById('cost-badge-value').textContent = 'N/A';
+                document.getElementById('cost-badge-tokens').textContent = '';
+                document.getElementById('cost-badge-phases').textContent = '';
+                return;
+            }
+            const total = tu.job_total || {};
+            const cost = total.cost_usd != null ? `$${total.cost_usd.toFixed(3)}` : 'N/A';
+            document.getElementById('cost-badge-value').textContent = cost;
+            const tokens = total.total_tokens ? total.total_tokens.toLocaleString() + ' tokens' : '';
+            document.getElementById('cost-badge-tokens').textContent = tokens;
+            const phases = tu.phases || {};
+            const phaseParts = Object.entries(phases).map(([k, v]) =>
+                `${k === 'phase1' ? 'P1' : 'P2'}: $${(v.cost_usd || 0).toFixed(3)}`
+            );
+            document.getElementById('cost-badge-phases').textContent = phaseParts.join(' · ');
+        }
+
+        function renderFundCostSummary() {
+            const summaryEl = document.getElementById('fund-cost-summary');
+            if (!activeJob || jobs.length === 0) {
+                summaryEl.style.display = 'none';
+                return;
+            }
+            const fundJobs = jobs.filter(j => j.fund_id === activeJob.fund_id);
+            if (fundJobs.length <= 1) {
+                summaryEl.style.display = 'none';
+                return;
+            }
+            let total = 0;
+            let included = 0;
+            let na = 0;
+            fundJobs.forEach(j => {
+                const tu = j.token_usage;
+                if (tu && tu.job_total != null) {
+                    total += tu.job_total.cost_usd || 0;
+                    included++;
+                } else {
+                    na++;
+                }
+            });
+            summaryEl.style.display = 'block';
+            document.getElementById('fund-cost-total').textContent = `$${total.toFixed(3)}`;
+            const parts = [];
+            if (included > 0) parts.push(`${included} job${included > 1 ? 's' : ''}`);
+            if (na > 0) parts.push(`${na} N/A`);
+            document.getElementById('fund-cost-breakdown').textContent = parts.length ? ` (${parts.join(', ')})` : '';
+        }
+
+        function updateJobUIState() {
+            if (!activeJob) {
+                document.getElementById("welcome-view").style.display = "flex";
+                document.getElementById("main-job-view").style.display = "none";
+                document.getElementById("top-title-fund").textContent = "No Fund Selected";
+                document.getElementById("top-subtitle-abn").textContent = "Select or run a job to get started";
+                document.getElementById('cost-badge-container').style.display = 'none';
+
+                // Disable and reset top horizontal tabs
+                document.getElementById('tab-btn-docs').classList.add('disabled');
+                document.getElementById('tab-btn-orch').classList.add('disabled');
+                document.getElementById('tab-btn-docs').classList.remove('active');
+                document.getElementById('tab-btn-orch').classList.remove('active');
+                return;
+            }
+
+            // Hide welcome screen, show tab content
+            document.getElementById("welcome-view").style.display = "none";
+            document.getElementById("main-job-view").style.display = "block";
+
+            // Enable horizontal tabs
+            document.getElementById('tab-btn-docs').classList.remove('disabled');
+            document.getElementById('tab-btn-orch').classList.remove('disabled');
+
+            // Header state
+            document.getElementById("top-title-fund").textContent = activeJob.fund_name;
+            document.getElementById("top-subtitle-abn").textContent = `ABN: ${activeJob.abn} | ID: ${activeJob.job_id}`;
+
+            // Cost badge and fund total
+            renderCostBadge();
+            renderFundCostSummary();
+
+            const badge = document.getElementById("global-status-badge");
+            badge.className = `badge badge-${activeJob.status}`;
+            badge.textContent = `● ${activeJob.status.replace("_", " ").toUpperCase()}`;
+
+            // Tab 1: Document Intelligence Table
+            renderDocumentsTable();
+
+            // Tab 2: Agent Orchestration Timeline
+            renderTimeline();
+
+            // Tab 3: Data Intelligence Tables
+            renderDataIntelligence();
+
+            // Tab 4: Playbook Manager Settings
+            renderPlaybookManager();
+        }
+
+        function renderDocumentsTable() {
+            const tbody = document.getElementById("docs-table-tbody");
+            tbody.innerHTML = "";
+            
+            const files = activeJob.files || [];
+            
+            if (files.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">No documents classified yet. Job status is: <strong>${activeJob.status}</strong></td></tr>`;
+                document.getElementById("docs-reviewed-count").textContent = `0 of 0 approved`;
+                return;
+            }
+
+            let approvedCount = 0;
+            files.forEach((file, idx) => {
+                const isApproved = file.status === "Approved";
+                if (isApproved) approvedCount++;
+                
+                const tr = document.createElement("tr");
+                tr.className = isApproved ? "row-approved" : "row-suggested";
+
+                let metadataHtml = "";
+                if (file.category.includes("Bank Statement") && file.account_number) {
+                    metadataHtml = `Account: <strong>${file.account_number}</strong>`;
+                } else if (file.category.includes("Accountancy") && file.amount) {
+                    metadataHtml = `Amount: <strong>$${file.amount}</strong>`;
+                } else if (file.category.includes("Audit Invoice") && file.amount) {
+                    metadataHtml = `Amount: <strong>$${file.amount}</strong>`;
+                } else if (file.category.includes("Portfolio Valuation") && file.date) {
+                    metadataHtml = `Date: <strong>${file.date}</strong>`;
+                } else {
+                    metadataHtml = "-";
+                }
+
+                // If approved by processor or review completed, show final pdf link
+                let fileLinkHtml = `<strong>${file.original_name}</strong>`;
+                if (file.classified_name && file.classified_name !== "[Split and grouped by account]") {
+                    const servePhase = (activeJob.status === "processing_docs" || activeJob.status === "pending_processor_review") ? "staging" : "workpaper";
+                    fileLinkHtml = `<a class="file-link" href="/api/jobs/${activeJob.job_id}/file/${servePhase}/${file.classified_name}" target="_blank">📄 ${file.classified_name}</a>`;
+                }
+
+                let btnHtml = "";
+                // Human processor editing only enabled during processor review phase
+                if (activeJob.status === "pending_processor_review") {
+                    btnHtml = `<button class="btn-action" onclick="openOverrideModal(${idx})">✏️ Override</button>`;
+                } else {
+                    btnHtml = `<span style="font-size:0.75rem; color:var(--text-muted)">Locked</span>`;
+                }
+
+                let statusBadgeClass = isApproved ? "badge-verified" : "badge-na";
+                let statusLabel = isApproved ? "Verified & Approved" : "AI Suggested";
+                
+                tr.innerHTML = `
+                    <td>${file.original_name}</td>
+                    <td>${fileLinkHtml}</td>
+                    <td><strong>${file.category}</strong></td>
+                    <td>${metadataHtml}</td>
+                    <td><span class="badge-table ${statusBadgeClass}">● ${statusLabel}</span><br><span style="font-size:0.7rem; color:var(--text-muted);">${file.notes || ''}</span></td>
+                    <td>${btnHtml}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById("docs-reviewed-count").textContent = `${approvedCount} of ${files.length} verified & approved`;
+
+            // Unprocessed files table
+            const unprocessed = activeJob.unprocessed_files || [];
+            const unprocessedCard = document.getElementById("unprocessed-files-card");
+            const unprocessedTbody = document.getElementById("unprocessed-table-tbody");
+            
+            if (unprocessed.length > 0) {
+                unprocessedCard.style.display = "block";
+                unprocessedTbody.innerHTML = "";
+                unprocessed.forEach(file => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td style="color:var(--danger); font-weight:600;">${file.filename}</td>
+                        <td style="font-size:0.78rem; font-family:monospace; color:var(--text-muted);">${file.path}</td>
+                        <td style="font-size:0.8rem; color:var(--text-muted);">${file.reason}</td>
+                    `;
+                    unprocessedTbody.appendChild(tr);
+                });
+            } else {
+                unprocessedCard.style.display = "none";
+            }
+
+            // Processor Sign-off Card disabled/enabled
+            const textarea = document.getElementById("processor-notes-input");
+            const btnSignoff = document.getElementById("btn-processor-signoff");
+            
+            if (activeJob.status === "pending_processor_review") {
+                textarea.disabled = false;
+                textarea.value = activeJob.processor_notes || "";
+                btnSignoff.disabled = false;
+                btnSignoff.style.opacity = 1;
+            } else {
+                textarea.disabled = true;
+                textarea.value = activeJob.processor_notes || "Processor Review Sign-off completed.";
+                btnSignoff.disabled = true;
+                btnSignoff.style.opacity = 0.5;
+            }
+        }
+
+        function renderTimeline() {
+            // Reset steps
+            for (let i = 1; i <= 4; i++) {
+                document.getElementById(`timeline-step-${i}`).className = "timeline-step";
+            }
+
+            const status = activeJob.status;
+            const pctText = document.getElementById("orchestration-progress-text");
+            pctText.textContent = `${activeJob.progress_percent}%`;
+
+            if (status === "processing_docs") {
+                document.getElementById("timeline-step-1").className = "timeline-step active";
+            } else if (status === "pending_processor_review") {
+                document.getElementById("timeline-step-1").className = "timeline-step completed";
+                document.getElementById("timeline-step-2").className = "timeline-step active";
+            } else if (status === "processing_review") {
+                document.getElementById("timeline-step-1").className = "timeline-step completed";
+                document.getElementById("timeline-step-2").className = "timeline-step completed";
+                document.getElementById("timeline-step-3").className = "timeline-step active";
+            } else if (status === "pending_reviewer_approval") {
+                document.getElementById("timeline-step-1").className = "timeline-step completed";
+                document.getElementById("timeline-step-2").className = "timeline-step completed";
+                document.getElementById("timeline-step-3").className = "timeline-step completed";
+                document.getElementById("timeline-step-4").className = "timeline-step active";
+            } else if (status === "completed") {
+                document.getElementById("timeline-step-1").className = "timeline-step completed";
+                document.getElementById("timeline-step-2").className = "timeline-step completed";
+                document.getElementById("timeline-step-3").className = "timeline-step completed";
+                document.getElementById("timeline-step-4").className = "timeline-step completed";
+            }
+
+            // Fill logs terminal
+            const container = document.getElementById("terminal-log-container");
+            container.innerHTML = "";
+            const logs = activeJob.logs || [];
+            logs.forEach(log => {
+                const div = document.createElement("div");
+                div.className = "terminal-line";
+                if (log.includes("ERROR") || log.includes("failed")) {
+                    div.classList.add("error");
+                } else if (log.includes("Warning") || log.includes("variance") || log.includes("Missing")) {
+                    div.classList.add("warn");
+                } else if (log.includes("AI Reviewer") || log.includes("AI Processor")) {
+                    div.classList.add("info");
+                }
+                div.textContent = log;
+                container.appendChild(div);
+            });
+            
+            // Scroll to bottom
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function renderDataIntelligence() {
+            const lockedView = document.getElementById("data-intelligence-locked");
+            const unlockedView = document.getElementById("data-intelligence-unlocked");
+            
+            // Reconciliations only visible if reviewed/reviewing
+            if (activeJob.status === "processing_docs" || activeJob.status === "pending_processor_review") {
+                lockedView.style.display = "block";
+                unlockedView.style.display = "none";
+                return;
+            }
+
+            lockedView.style.display = "none";
+            unlockedView.style.display = "block";
+
+            // Render Notes Board values
+            document.getElementById("board-processor-notes").value = activeJob.processor_notes || "None.";
+            
+            const revNotesInput = document.getElementById("board-reviewer-notes");
+            revNotesInput.value = activeJob.reviewer_notes || "";
+            
+            if (activeJob.status === "pending_reviewer_approval") {
+                revNotesInput.disabled = false;
+                document.getElementById("reviewer-signoff-card").style.display = "block";
+            } else {
+                revNotesInput.disabled = true;
+                document.getElementById("reviewer-signoff-card").style.display = "none";
+            }
+
+            // Auditor exceptions board
+            const exceptionsList = document.getElementById("board-auditor-exceptions");
+            exceptionsList.innerHTML = "";
+            const exceptions = activeJob.auditor_notes || [];
+            
+            if (exceptions.length === 0) {
+                exceptionsList.innerHTML = `<div style="font-size:0.75rem; color:var(--text-muted);">No exceptions found. Ledger is clean.</div>`;
+            } else {
+                exceptions.forEach(exc => {
+                    const item = document.createElement("div");
+                    item.style.fontSize = "0.75rem";
+                    item.style.marginBottom = "0.25rem";
+                    item.style.color = exc.type === "error" ? "var(--danger)" : "var(--warning)";
+                    item.innerHTML = `<strong>${exc.type === "error" ? '🚨' : '⚠️'} ${exc.title}</strong><br>${exc.description}`;
+                    exceptionsList.appendChild(item);
+                });
+            }
+
+            // Bank reconciliation results & query cards (Phase 2 engine output)
+            renderReconciliation();
+
+            const results = activeJob.results;
+            if (!results) return;
+
+            // Render Checklist Status Table
+            const chkTbody = document.getElementById("checklist-table-tbody");
+            chkTbody.innerHTML = "";
+            const checklist = results.checklist || {};
+            
+            let totalChecklistItems = 0;
+            let verifiedChecklistItems = 0;
+            
+            Object.entries(checklist).forEach(([category, items]) => {
+                const catTr = document.createElement("tr");
+                catTr.className = "checklist-cat-row";
+                catTr.innerHTML = `
+                    <td colspan="5" style="color: var(--primary); font-family: var(--font-display); font-size: 0.95rem; font-weight:700;">📂 ${category}</td>
+                `;
+                chkTbody.appendChild(catTr);
+                
+                Object.entries(items).forEach(([itemName, itemDetails]) => {
+                    totalChecklistItems++;
+                    const status = itemDetails.status;
+                    if (status === "Verified") verifiedChecklistItems++;
+                    
+                    const tr = document.createElement("tr");
+                    
+                    let statusBadgeClass = "na";
+                    if (status === "Verified") statusBadgeClass = "verified";
+                    else if (status === "Missing") statusBadgeClass = "missing";
+                    
+                    let statusHtml = `<span class="status-badge ${statusBadgeClass}">● ${status}</span>`;
+                    
+                    let filesHtml = "-";
+                    if (itemDetails.files && itemDetails.files.length > 0) {
+                        filesHtml = itemDetails.files.map(f => 
+                            `<a class="file-link" href="/api/jobs/${activeJob.job_id}/file/workpaper/${f}" target="_blank">📄 ${f}</a>`
+                        ).join(" ");
+                    }
+                    
+                    tr.innerHTML = `
+                        <td style="color: var(--text-muted); font-size: 0.8rem; padding-left: 2rem;">${category}</td>
+                        <td style="font-weight: 600; color: #fff;">${itemName}</td>
+                        <td>${statusHtml}</td>
+                        <td><div style="display:flex; flex-direction:row; flex-wrap:wrap; gap:0.4rem;">${filesHtml}</div></td>
+                        <td style="color: var(--text-muted); font-size: 0.82rem;">${itemDetails.notes || '-'}</td>
+                    `;
+                    chkTbody.appendChild(tr);
+                });
+            });
+            
+            document.getElementById("checklist-summary-badge").textContent = `${verifiedChecklistItems} of ${totalChecklistItems} verified`;
+
+            // Render Cash Lead Schedule
+            const cash = results.cash_reconciliation || { accounts: [], audit_checks: [] };
+            const cashTbody = document.getElementById("cash-tbody");
+            cashTbody.innerHTML = "";
+            let cashOpenTotal = 0;
+            let cashCloseTotal = 0;
+
+            (cash.accounts || []).forEach(acc => {
+                cashOpenTotal += acc.opening_bal_1jul24;
+                cashCloseTotal += acc.closing_bal_30jun25;
+
+                // Match statement download link
+                let fileLinkHtml = "";
+                const cleanAccNum = acc.number.replace(" ", "").replace("-", "");
+                const matchedFile = (activeJob.files || []).find(f => f.classified_name && f.classified_name.includes(cleanAccNum));
+                if (matchedFile) {
+                    fileLinkHtml = `<br><a class="file-link" style="margin-top:0.2rem;" href="/api/jobs/${activeJob.job_id}/file/workpaper/${matchedFile.classified_name}" target="_blank">📄 Statement Ledger</a>`;
+                }
+
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td style="font-weight:600; color:#fff;">${acc.name}<br><span style="font-size:0.75rem; color:var(--text-muted);">${acc.number}</span>${fileLinkHtml}</td>
+                    <td>${acc.bsb}</td>
+                    <td class="val-num">$${acc.opening_bal_1jul24.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td class="val-num" style="color:var(--success); font-weight:700;">$${acc.closing_bal_30jun25.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                `;
+                cashTbody.appendChild(tr);
+            });
+
+            // Cash Total Row
+            const cashTotalTr = document.createElement("tr");
+            cashTotalTr.style.background = "rgba(255,255,255,0.03)";
+            cashTotalTr.style.fontWeight = "700";
+            cashTotalTr.style.borderTop = "2px solid var(--surface-border)";
+            cashTotalTr.innerHTML = `
+                <td>TOTAL RECONCILED CASH AT BANK</td>
+                <td>-</td>
+                <td class="val-num">$${cashOpenTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td class="val-num" style="color:var(--success);">$${cashCloseTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            `;
+            cashTbody.appendChild(cashTotalTr);
+
+            // Cash checks sidebar
+            const checksList = document.getElementById("cash-checks-list");
+            checksList.innerHTML = "";
+            (cash.audit_checks || []).forEach(chk => {
+                const item = document.createElement("div");
+                item.className = "check-box-item";
+                
+                let badgeClass = "chk-pass";
+                if (chk.status === "Fail") badgeClass = "chk-fail";
+                else if (chk.status === "N/A") badgeClass = "chk-na";
+
+                item.innerHTML = `
+                    <div class="check-box-item-header">
+                        <span style="font-weight:600;">${chk.description}</span>
+                        <span class="${badgeClass}">${chk.status}</span>
+                    </div>
+                    <div class="check-box-item-desc">${chk.details}</div>
+                `;
+                checksList.appendChild(item);
+            });
+
+            // Render Portfolio schedule
+            const portfolio = results.portfolio_reconciliation || { totals: { opening_1jul24: {}, closing_30jun25: {} }, mxt_reconciliation: {}, distribution_check: {} };
+            const portTbody = document.getElementById("portfolio-tbody");
+            portTbody.innerHTML = "";
+
+            const totals = portfolio.totals || {};
+            const openTotals = totals.opening_1jul24 || {};
+            const closeTotals = totals.closing_30jun25 || {};
+            const openCost = openTotals.total_cost || 0;
+            const openMv = openTotals.total_market_value || 0;
+            const openInc = openTotals.estimated_annual_income || 0;
+
+            const closeCost = closeTotals.total_cost || 0;
+            const closeMv = closeTotals.total_market_value || 0;
+            const closeInc = closeTotals.estimated_annual_income || 0;
+
+            const trOpen = document.createElement("tr");
+            trOpen.innerHTML = `
+                <td>Opening Portfolio (01 Jul 2024)</td>
+                <td class="val-num">$${openCost.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td class="val-num">$${openMv.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td class="val-num">$${openInc.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+            `;
+            portTbody.appendChild(trOpen);
+
+            const trClose = document.createElement("tr");
+            trClose.innerHTML = `
+                <td>Closing Portfolio (30 Jun 2025)</td>
+                <td class="val-num">$${closeCost.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td class="val-num" style="color:var(--success);">$${closeMv.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td class="val-num">$${closeInc.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+            `;
+            portTbody.appendChild(trClose);
+
+            // Portfolio Net Variation
+            const trVar = document.createElement("tr");
+            trVar.style.background = "rgba(255,255,255,0.03)";
+            trVar.style.fontWeight = "700";
+            trVar.innerHTML = `
+                <td>NET PORTFOLIO VARIATION</td>
+                <td class="val-num">$${(closeCost - openCost).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td class="val-num" style="color:var(--success);">$${(closeMv - openMv).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td class="val-num">$${(closeInc - openInc).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+            `;
+            portTbody.appendChild(trVar);
+
+            // Portfolio MXT check
+            const mxt = portfolio.mxt_reconciliation || {};
+            document.getElementById("mxt-recon-header-title").textContent = mxt.description || "Investment Asset Verification Check";
+            
+            const badgeVar = document.getElementById("mxt-variance-badge");
+            if (mxt.variance_value > 0) {
+                badgeVar.className = "chk-fail";
+                badgeVar.textContent = `+$${mxt.variance_value.toFixed(2)}`;
+            } else {
+                badgeVar.className = "chk-pass";
+                badgeVar.textContent = "Reconciled";
+            }
+            
+            document.getElementById("mxt-variance-text").innerHTML = `
+                Reconciling MXT holding at 30/06/2025 (${mxt.broker_units ? mxt.broker_units.toLocaleString() : 0} units):<br>
+                • Broker Market Value: <strong>$${(mxt.broker_market_value || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</strong> (price $${mxt.broker_price || 0}/u)<br>
+                • Registry NAV Value: <strong>$${(mxt.registry_market_value || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</strong> (price $${mxt.registry_price || 0}/u)<br>
+                • Close vs NAV Variance: <strong style="color:var(--warning);">+$${(mxt.variance_value || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</strong>
+            `;
+
+            const dist = portfolio.distribution_check || {};
+            document.getElementById("mxt-distribution-text").innerHTML = `
+                Metrics Tax Statement Distribution: <strong>$${(dist.mxt_tax_statement_distribution || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</strong><br>
+                Automic Registry Periodic statement: <strong>$${(dist.mxt_periodic_statement_distribution || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</strong><br>
+                Tax Return Net Trust Income (13U): <strong>$${(dist.tax_return_share_of_income_13u || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</strong><br>
+                Reconciliation status: <strong>${dist.reconciliation || 'Pass'}</strong>
+            `;
+
+            // Tax ledger
+            const tax = results.tax_reconciliation || { accounts: [], outstanding_returns: {} };
+            const taxTbody = document.getElementById("tax-tbody");
+            taxTbody.innerHTML = "";
+            
+            (tax.accounts || []).forEach(acc => {
+                const tr = document.createElement("tr");
+                let badgeClass = acc.status === "Reconciled" ? "badge-verified" : "badge-na";
+                tr.innerHTML = `
+                    <td style="font-weight:600; color:#fff;">${acc.name}</td>
+                    <td class="val-num">$${(acc.balance_30jun25 || 0).toFixed(2)}</td>
+                    <td><span class="badge-table ${badgeClass}">● ${acc.status}</span><br><span style="font-size:0.72rem; color:var(--text-muted);">${acc.notes || ''}</span></td>
+                `;
+                taxTbody.appendChild(tr);
+            });
+
+            const returnYear = Object.keys(tax.outstanding_returns || {'FY25': ''})[0] || 'FY25';
+            const returnStatus = tax.outstanding_returns[returnYear] || 'Outstanding';
+            document.getElementById("tax-return-outstanding-text").innerHTML = `
+                <strong>Outstanding Returns:</strong> ${returnYear} - <span style="color:var(--warning); font-weight:700;">${returnStatus}</span><br>
+                <span style="font-size:0.75rem; color:var(--text-muted);">${tax.outstanding_returns.details || ''}</span>
+            `;
+
+            // Member reconciliation
+            const member = results.member_reconciliation || {};
+            document.getElementById("member-name-text").textContent = member.name || "N/A";
+            document.getElementById("member-tfn-text").textContent = member.tfn || "N/A";
+            document.getElementById("member-tsb-2024-text").textContent = `$${(member.tsb_2024 || 0).toLocaleString(undefined, {minimumFractionDigits:2})}`;
+            document.getElementById("member-tsb-2025-text").textContent = `$${(member.tsb_2025 || 0).toLocaleString(undefined, {minimumFractionDigits:2})}`;
+            document.getElementById("member-finding-desc").textContent = member.audit_finding || "No findings.";
+        }
+
+        function renderReconciliation() {
+            const ctx = activeJob.phase2_context || {};
+            const reconResults = ctx.reconciliation_results;
+            const queries = ctx.queries;
+            const summary = ctx.summary;
+
+            renderKpiStrip();
+
+            const reconPanel = document.getElementById('reconciliation-panel');
+            const queriesPanel = document.getElementById('client-queries-panel');
+
+            // --- Reconciliation results ---
+            if (reconResults && Object.keys(reconResults).length > 0) {
+                reconPanel.style.display = 'block';
+
+                // Summary bar
+                const summaryBar = document.getElementById('recon-summary-bar');
+                if (summary) {
+                    summaryBar.innerHTML = `
+                        <span class="recon-stat">Total: <strong>${summary.total}</strong></span>
+                        <span class="badge-table badge-matched">&#10003; ${summary.matched} matched</span>
+                        ${summary.unmatched > 0
+                            ? `<span class="badge-table badge-unmatched">&#10007; ${summary.unmatched} unmatched</span>`
+                            : ''}
+                    `;
+                } else {
+                    summaryBar.innerHTML = '';
+                }
+
+                const accountsContainer = document.getElementById('recon-accounts-container');
+                accountsContainer.innerHTML = '';
+
+                let firstUnmatched = true;
+
+                Object.entries(reconResults).forEach(([accNum, accData]) => {
+                    const txns = accData.transactions || [];
+                    const matched = txns.filter(t => t.status === 'matched').length;
+                    const unmatched = txns.filter(t => t.status === 'unmatched').length;
+
+                    const rows = txns.map(t => {
+                        const isMatched = t.status === 'matched';
+                        const statusBadge = isMatched
+                            ? `<span class="badge-table badge-matched">&#10003; Matched</span>`
+                            : `<span class="badge-table badge-unmatched">&#10007; Unmatched</span>`;
+                        const docHtml = t.matched_document
+                            ? `<span style="font-size:0.75rem; color:var(--primary);">&#128196; ${t.matched_document}</span>`
+                            : `<span style="color:var(--text-muted);">-</span>`;
+                        const amt = parseFloat(t.amount || t.debit || t.credit || 0);
+                        const isDebit = (t.type || '').toLowerCase() === 'debit' || (t.debit && parseFloat(t.debit) > 0);
+                        const amtStyle = isDebit ? 'color:var(--danger)' : 'color:var(--success)';
+                        const amtPrefix = isDebit ? '-' : '+';
+                        const rowBg = !isMatched ? 'background:rgba(239,68,68,0.02)' : '';
+                        return `
+                            <tr style="${rowBg}">
+                                <td style="font-size:0.8rem;">${t.date || '-'}</td>
+                                <td style="font-size:0.82rem;">${t.description || '-'}</td>
+                                <td class="val-num" style="${amtStyle}; font-size:0.85rem;">${amtPrefix}$${Math.abs(amt).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                                <td style="font-size:0.75rem; color:var(--text-muted); text-transform:capitalize;">${t.type || '-'}</td>
+                                <td>${statusBadge}</td>
+                                <td style="font-size:0.78rem; color:var(--text-muted);">${t.reason || t.unmatched_reason || '-'}</td>
+                                <td>${docHtml}</td>
+                            </tr>`;
+                    }).join('');
+
+                    const isOpen = unmatched > 0 && firstUnmatched;
+                    if (unmatched > 0 && firstUnmatched) firstUnmatched = false;
+                    const bodyId = 'recon-acc-body-' + accNum.replace(/\W/g, '_');
+
+                    const section = document.createElement('div');
+                    section.innerHTML = `
+                        <button class="recon-account-toggle" onclick="toggleReconAccount('${bodyId}', this)" aria-expanded="${isOpen}">
+                            <span class="recon-account-expand-icon">${isOpen ? '▼' : '▶'}</span>
+                            <span class="recon-account-name" style="flex:1;">${accData.account_name || accNum}</span>
+                            <div style="display:flex; gap:0.5rem; align-items:center;">
+                                <span class="badge-table badge-matched">&#10003; ${matched} matched</span>
+                                ${unmatched > 0 ? `<span class="badge-table badge-unmatched">&#10007; ${unmatched} unmatched</span>` : ''}
+                            </div>
+                        </button>
+                        <div id="${bodyId}" style="${isOpen ? '' : 'display:none;'}">
+                            <div class="recon-account-rows-inner">
+                                <div class="table-container">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Description</th>
+                                                <th class="val-num">Amount</th>
+                                                <th>Type</th>
+                                                <th>Status</th>
+                                                <th>Reason</th>
+                                                <th>Supporting Document</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>${rows}</tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>`;
+                    accountsContainer.appendChild(section);
+                });
+            } else {
+                reconPanel.style.display = 'none';
+            }
+
+            // --- Client query rail ---
+            if (queries && queries.length > 0) {
+                queriesPanel.style.display = 'block';
+                window._currentQueries = queries;
+
+                const hasSubQueries = queries.some(q => Array.isArray(q.sub_queries) && q.sub_queries.length > 0);
+                const toggleEl = document.getElementById('queries-view-toggle');
+                if (toggleEl) toggleEl.style.display = hasSubQueries ? 'inline-flex' : 'none';
+
+                renderQueryCards(queries, window._queryViewMode || 'coarse');
+            } else {
+                queriesPanel.style.display = 'none';
+                window._currentQueries = [];
+            }
+        }
+
+        // Current view mode: 'coarse' (default) or 'granular'
+        window._queryViewMode = 'coarse';
+        window._currentQueries = [];
+        window._railQueries = [];
+        window._selectedRailId = null;
+
+        function switchDiTab(tab) {
+            document.querySelectorAll('.di-sub-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.di-sub-pane').forEach(pane => pane.style.display = 'none');
+            document.getElementById('di-tab-' + tab).style.display = 'block';
+            const idx = ['recon-queries','lead-schedules','compliance','agent-logs'].indexOf(tab);
+            document.querySelectorAll('.di-sub-btn')[idx].classList.add('active');
+        }
+
+        function renderKpiStrip() {
+            const ctx = activeJob.phase2_context || {};
+            const summary = ctx.summary || {};
+            const queries = ctx.queries || [];
+            const exceptions = activeJob.auditor_notes || [];
+
+            const pendingQueries = queries.reduce((n, q) => {
+                if (Array.isArray(q.sub_queries) && q.sub_queries.length > 0) {
+                    return n + q.sub_queries.filter(sq => (sq.status || 'pending') === 'pending').length;
+                }
+                return n + ((q.status || 'pending') === 'pending' ? 1 : 0);
+            }, 0);
+
+            const strip = document.getElementById('kpi-strip');
+            if (!strip) return;
+            strip.innerHTML = `
+                <div class="kpi-stat">
+                    <span class="kpi-stat-value">${summary.total || 0}</span>
+                    <span class="kpi-stat-label">Transactions</span>
+                </div>
+                <div class="kpi-divider"></div>
+                <div class="kpi-stat">
+                    <span class="kpi-stat-value" style="color:var(--success);">${summary.matched || 0}</span>
+                    <span class="kpi-stat-label">Matched</span>
+                </div>
+                <div class="kpi-stat">
+                    <span class="kpi-stat-value" style="color:var(--danger);">${summary.unmatched || 0}</span>
+                    <span class="kpi-stat-label">Unmatched</span>
+                </div>
+                <div class="kpi-divider"></div>
+                <div class="kpi-stat">
+                    <span class="kpi-stat-value" style="color:var(--warning);">${pendingQueries}</span>
+                    <span class="kpi-stat-label">Pending Queries</span>
+                </div>
+                <div class="kpi-stat">
+                    <span class="kpi-stat-value" style="color:${exceptions.length > 0 ? 'var(--danger)' : 'var(--text-muted)'};">${exceptions.length}</span>
+                    <span class="kpi-stat-label">Exceptions</span>
+                </div>
+            `;
+        }
+
+        function toggleReconAccount(bodyId, btn) {
+            const body = document.getElementById(bodyId);
+            if (!body) return;
+            const isOpen = body.style.display !== 'none';
+            body.style.display = isOpen ? 'none' : 'block';
+            const icon = btn.querySelector('.recon-account-expand-icon');
+            if (icon) icon.textContent = isOpen ? '▶' : '▼';
+            btn.setAttribute('aria-expanded', String(!isOpen));
+        }
+
+        function renderRailRows() {
+            const rowsEl = document.getElementById('query-rail-rows');
+            if (!rowsEl) return;
+            rowsEl.innerHTML = '';
+            window._railQueries.forEach(q => {
+                const qId = q.id;
+                const status = q.status || 'pending';
+                const isSelected = String(qId) === String(window._selectedRailId);
+                const dotColor = {pending: 'var(--warning)', sent: 'var(--success)', dismissed: 'var(--text-muted)'}[status] || 'var(--text-muted)';
+                const txCount = (q.transactions || []).length;
+                const row = document.createElement('div');
+                row.className = 'query-rail-row' + (isSelected ? ' selected' : '');
+                row.dataset.queryId = qId;
+                row.innerHTML = `
+                    <span class="query-rail-dot" style="background:${dotColor};"></span>
+                    <span class="query-rail-cat">${q.category || 'Unclassified'}</span>
+                    <span class="query-rail-count">${txCount}</span>
+                `;
+                row.addEventListener('click', () => selectRailRow(qId));
+                rowsEl.appendChild(row);
+            });
+        }
+
+        function selectRailRow(qId) {
+            window._selectedRailId = qId;
+            renderRailRows();
+            const q = window._railQueries.find(x => String(x.id) === String(qId));
+            if (q) renderRailDetail(q);
+        }
+
+        function renderRailDetail(q) {
+            const pane = document.getElementById('query-rail-detail');
+            if (!pane) return;
+            const qId = q.id;
+            const status = q.status || 'pending';
+
+            const txRows = (q.transactions || []).map(t => {
+                const amtRaw = t.amount != null ? t.amount : (t.debit != null ? t.debit : t.credit);
+                const isDebit = t.debit != null || t.type === 'debit';
+                const amtDisplay = typeof amtRaw === 'number'
+                    ? (isDebit ? '-' : '+') + '$' + Math.abs(amtRaw).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})
+                    : (amtRaw || '-');
+                const amtColor = typeof amtRaw === 'number' ? (isDebit ? 'var(--danger, #e53e3e)' : 'var(--success, #38a169)') : '';
+                return `<tr>
+                    <td style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">${t.date || '-'}</td>
+                    <td style="font-size:0.8rem;">${t.description || '-'}</td>
+                    <td class="val-num" style="font-size:0.8rem; color:${amtColor};">${amtDisplay}</td>
+                </tr>`;
+            }).join('');
+
+            const statusBadgeHtml = status !== 'pending'
+                ? `<span class="badge-table ${status === 'sent' ? 'badge-sent' : 'badge-dismissed'} query-status-badge">&#9679; ${status === 'sent' ? 'Sent' : 'Dismissed'}</span>`
+                : '';
+
+            const actionsHtml = status === 'pending' ? `
+                <div class="query-card-actions" style="margin-top:auto; padding-top:0.75rem;">
+                    <button class="btn-query-dismiss" onclick="dismissQuery('${qId}')">Dismiss</button>
+                    <button class="btn-query-send" onclick="openSendQueryModal('${qId}')">Send</button>
+                </div>` : '';
+
+            const txCount = (q.transactions || []).length;
+
+            pane.innerHTML = `
+                <div id="query-card-${qId}" style="display:flex; flex-direction:column; gap:0.75rem; height:100%;">
+                    <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                        <div class="query-card-category">${q.category || 'Unclassified'}</div>
+                        ${statusBadgeHtml}
+                    </div>
+                    <textarea class="query-card-textarea"${status !== 'pending' ? ' disabled' : ''}>${(q.query_text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+                    ${txCount > 0 ? `
+                    <div>
+                        <p style="font-size:0.75rem; color:var(--text-muted); margin:0 0 0.4rem;">${txCount} transaction${txCount === 1 ? '' : 's'}</p>
+                        <div style="border:1px solid var(--surface-border); border-radius:8px; overflow:hidden;">
+                            <div class="recon-account-rows-inner">
+                                <table style="width:100%; border-collapse:collapse;">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Description</th>
+                                            <th class="val-num">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${txRows}</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>` : ''}
+                    ${actionsHtml}
+                </div>
+            `;
+        }
+
+        function setQueryView(mode) {
+            window._queryViewMode = mode;
+            document.getElementById('btn-coarse-view').classList.toggle('active', mode === 'coarse');
+            document.getElementById('btn-granular-view').classList.toggle('active', mode === 'granular');
+            renderQueryCards(window._currentQueries, mode);
+        }
+
+        function renderQueryCards(queries, mode) {
+            // Build flat list for the rail
+            const railItems = [];
+            queries.forEach(q => {
+                if (mode === 'granular' && Array.isArray(q.sub_queries) && q.sub_queries.length > 0) {
+                    q.sub_queries.forEach(sq => railItems.push(sq));
+                } else {
+                    railItems.push(q);
+                }
+            });
+            window._railQueries = railItems;
+
+            // Update pending count badge
+            const pendingCount = railItems.filter(q => (q.status || 'pending') === 'pending').length;
+            const countBadge = document.getElementById('queries-count-badge');
+            if (countBadge) {
+                countBadge.textContent = pendingCount > 0
+                    ? `${pendingCount} pending`
+                    : `${railItems.length} total — all actioned`;
+            }
+
+            // Select first pending item (or first item)
+            const firstPending = railItems.find(q => (q.status || 'pending') === 'pending');
+            window._selectedRailId = (firstPending || railItems[0]) ? String((firstPending || railItems[0]).id) : null;
+
+            renderRailRows();
+
+            if (window._selectedRailId) {
+                const selected = railItems.find(x => String(x.id) === window._selectedRailId);
+                if (selected) renderRailDetail(selected);
+            } else {
+                const pane = document.getElementById('query-rail-detail');
+                if (pane) pane.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem; margin:0;">No queries to display.</p>';
+            }
+        }
+
+        function toggleQueryTransactions(elementId, btn) {
+            const el = document.getElementById(elementId);
+            const isHidden = el.style.display === 'none' || el.style.display === '';
+            el.style.display = isHidden ? 'block' : 'none';
+            btn.innerHTML = isHidden
+                ? btn.innerHTML.replace('&#9658; Show', '&#9660; Hide')
+                : btn.innerHTML.replace('&#9660; Hide', '&#9658; Show');
+        }
+
+        let _sendQueryContext = null;
+
+        function openSendQueryModal(queryId) {
+            const cardEl = document.getElementById('query-card-' + queryId);
+            if (!cardEl) return;
+            const textarea = cardEl.querySelector('.query-card-textarea');
+            _sendQueryContext = { queryId };
+            document.getElementById('send-query-preview').value = textarea ? textarea.value : '';
+            document.getElementById('send-query-recipient').value = '';
+            document.getElementById('send-query-modal').style.display = 'flex';
+        }
+
+        function closeSendQueryModal() {
+            document.getElementById('send-query-modal').style.display = 'none';
+            _sendQueryContext = null;
+        }
+
+        async function confirmSendQuery() {
+            if (!_sendQueryContext) return;
+            const { queryId } = _sendQueryContext;
+            const cardEl = document.getElementById('query-card-' + queryId);
+            const textarea = cardEl ? cardEl.querySelector('.query-card-textarea') : null;
+            const queryText = textarea ? textarea.value : document.getElementById('send-query-preview').value;
+
+            try {
+                const resp = await fetch(`/api/jobs/${activeJob.job_id}/queries/${queryId}/status`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'sent', query_text: queryText })
+                });
+                if (!resp.ok) throw new Error('Request failed');
+                if (cardEl) _applyQueryCardStatus(cardEl, 'sent');
+                closeSendQueryModal();
+            } catch (e) {
+                alert('Failed to send query. Please try again.');
+            }
+        }
+
+        async function dismissQuery(queryId) {
+            const cardEl = document.getElementById('query-card-' + queryId);
+            const textarea = cardEl ? cardEl.querySelector('.query-card-textarea') : null;
+            const queryText = textarea ? textarea.value : '';
+
+            try {
+                const resp = await fetch(`/api/jobs/${activeJob.job_id}/queries/${queryId}/status`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'dismissed', query_text: queryText })
+                });
+                if (!resp.ok) throw new Error('Request failed');
+                if (cardEl) _applyQueryCardStatus(cardEl, 'dismissed');
+            } catch (e) {
+                alert('Failed to dismiss query. Please try again.');
+            }
+        }
+
+        function _applyQueryCardStatus(cardEl, status) {
+            // Update in-memory status for the matching query
+            const match = cardEl.id.match(/^query-card-(.+)$/);
+            const qId = match ? match[1] : null;
+            if (qId !== null) {
+                const inRail = window._railQueries.find(x => String(x.id) === String(qId));
+                if (inRail) inRail.status = status;
+                (window._currentQueries || []).forEach(q => {
+                    if (String(q.id) === String(qId)) q.status = status;
+                    (q.sub_queries || []).forEach(sq => { if (String(sq.id) === String(qId)) sq.status = status; });
+                });
+            }
+
+            // Update the detail pane controls
+            let badge = cardEl.querySelector('.query-status-badge');
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'badge-table query-status-badge';
+                const headerRow = cardEl.querySelector('[style*="align-items:center"]');
+                if (headerRow) headerRow.appendChild(badge);
+            }
+            badge.textContent = status === 'sent' ? '● Sent' : '● Dismissed';
+            badge.className = `badge-table query-status-badge ${status === 'sent' ? 'badge-sent' : 'badge-dismissed'}`;
+
+            const ta = cardEl.querySelector('.query-card-textarea');
+            if (ta) ta.disabled = true;
+            const actions = cardEl.querySelector('.query-card-actions');
+            if (actions) actions.style.display = 'none';
+
+            // Re-render rail rows so the status dot updates
+            renderRailRows();
+
+            // Update the pending count badge
+            const pendingLeft = (window._railQueries || []).filter(q => (q.status || 'pending') === 'pending').length;
+            const total = (window._railQueries || []).length;
+            const countBadge = document.getElementById('queries-count-badge');
+            if (countBadge) {
+                countBadge.textContent = pendingLeft > 0
+                    ? `${pendingLeft} pending`
+                    : `${total} total — all actioned`;
+            }
+        }
+
+        function renderPlaybookManager() {
+            const tbody = document.getElementById("playbook-rules-tbody");
+            tbody.innerHTML = "";
+
+            const fundId = activeJob.fund_id;
+            const fund = funds.find(f => f.id === fundId);
+            if (!fund) return;
+
+            document.getElementById("playbook-manager-title").textContent = `Playbook Keyword Editor: ${fund.name}`;
+            document.getElementById("playbook-manager-subtitle").textContent = `Define customized keywords used by AI during Document Classification for the ${activeJob.job_type.replace("_", " & ")} playbook`;
+
+            const kws = fund.keywords || {};
+            const jobKws = kws[activeJob.job_type] || {};
+
+            if (Object.keys(jobKws).length === 0) {
+                tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:var(--text-muted); padding:2rem;">No playbook categories defined for job type: ${activeJob.job_type}</td></tr>`;
+                return;
+            }
+
+            Object.entries(jobKws).forEach(([cat, val]) => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td style="font-weight:600; color:#fff; vertical-align:top; padding-top:1.2rem;">${cat}</td>
+                    <td>
+                        <input type="text" class="playbook-kw-input" data-category="${cat}" value="${val}" style="padding:0.6rem; font-size:0.9rem;">
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function loadActiveFundPlaybook() {
+            // Reset job UI to welcome if no active job, or keep active job.
+            // If they change select dropdown, we can show details of playbook if they go to playbook tab.
+            if (activeJob) {
+                // If they change fund selection on left bar but haven't run pipeline yet,
+                // we don't automatically override the active job panel until they select an execution.
+            }
+        }
+
+        function savePlaybookConfig() {
+            const fundId = activeJob.fund_id;
+            const fund = funds.find(f => f.id === fundId);
+            if (!fund) return;
+
+            const inputs = document.querySelectorAll(".playbook-kw-input");
+            const newKws = {};
+            inputs.forEach(input => {
+                const cat = input.getAttribute("data-category");
+                newKws[cat] = input.value;
+            });
+
+            // Update local object
+            if (!fund.keywords) fund.keywords = {};
+            fund.keywords[activeJob.job_type] = newKws;
+
+            // Submit back to api
+            fetch('/api/funds', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(fund)
+            })
+            .then(res => res.json())
+            .then(res => {
+                alert("Playbook keywords updated successfully!");
+                fetchFunds();
+            })
+            .catch(err => alert("Failed to save playbook config: " + err));
+        }
+
+        // HITL Override Modal functions
+        function openOverrideModal(index) {
+            selectedFileIndex = index;
+            const file = activeJob.files[index];
+
+            document.getElementById("modal-filename").value = file.original_name;
+            
+            // Pop categories dropdown
+            const catSelect = document.getElementById("modal-category");
+            catSelect.innerHTML = "";
+            
+            const fund = funds.find(f => f.id === activeJob.fund_id);
+            const jobKws = (fund && fund.keywords) ? (fund.keywords[activeJob.job_type] || {}) : {};
+            
+            Object.keys(jobKws).forEach(cat => {
+                const opt = document.createElement("option");
+                opt.value = cat;
+                opt.textContent = cat;
+                if (cat === file.category) opt.selected = true;
+                catSelect.appendChild(opt);
+            });
+
+            // If not found in playbook, add current file category as option
+            if (!Object.keys(jobKws).includes(file.category)) {
+                const opt = document.createElement("option");
+                opt.value = file.category;
+                opt.textContent = file.category;
+                opt.selected = true;
+                catSelect.appendChild(opt);
+            }
+
+            document.getElementById("modal-accnum").value = file.account_number || "";
+            document.getElementById("modal-amount").value = file.amount || "";
+            document.getElementById("modal-date").value = file.date || "";
+            document.getElementById("modal-notes").value = file.notes || "";
+
+            document.getElementById("override-modal").style.display = "flex";
+        }
+
+        function closeOverrideModal() {
+            document.getElementById("override-modal").style.display = "none";
+            selectedFileIndex = null;
+        }
+
+        function saveFileOverride() {
+            if (selectedFileIndex === null) return;
+            
+            const file = activeJob.files[selectedFileIndex];
+            file.category = document.getElementById("modal-category").value;
+            file.account_number = document.getElementById("modal-accnum").value.trim() || null;
+            file.amount = document.getElementById("modal-amount").value.trim() || null;
+            file.date = document.getElementById("modal-date").value.trim() || null;
+            file.notes = document.getElementById("modal-notes").value.trim();
+            file.status = "Approved"; // marked as manually approved
+
+            renderDocumentsTable();
+            closeOverrideModal();
+        }
+
+        function submitProcessorReview() {
+            if (!activeJob) return;
+
+            const processorNotes = document.getElementById("processor-notes-input").value;
+            
+            // Mark all suggested files as approved if they weren't manually overridden
+            activeJob.files.forEach(f => {
+                if (f.status !== "Approved") {
+                    f.status = "Approved";
+                }
+            });
+
+            fetch(`/api/jobs/${activeJob.job_id}/processor-review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    files: activeJob.files,
+                    processor_notes: processorNotes
+                })
+            })
+            .then(res => res.json())
+            .then(res => {
+                selectJob(activeJob.job_id); // reload details to start polling Phase 2
+                switchTab('orch-tab'); // jump to logs/timeline
+            })
+            .catch(err => console.error("Error signing off processor review:", err));
+        }
+
+        function submitFinalReview() {
+            if (!activeJob) return;
+
+            const revNotes = document.getElementById("board-reviewer-notes").value;
+            
+            fetch(`/api/jobs/${activeJob.job_id}/reviewer-review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    reviewer_notes: revNotes
+                })
+            })
+            .then(res => res.json())
+            .then(res => {
+                alert("Job successfully sign-off and completed!");
+                refreshJobsList();
+            })
+            .catch(err => console.error("Error signing off reviewer review:", err));
+        }
+
+        // Navigation
+        function switchTab(tabId) {
+            if (!activeJob) return; // Prevent switching tabs if no active job is selected
+
+            const contents = document.querySelectorAll(".tab-content");
+            const buttons = document.querySelectorAll(".tab-btn");
+
+            contents.forEach(content => {
+                content.classList.remove("active");
+            });
+            buttons.forEach(btn => {
+                btn.classList.remove("active");
+            });
+
+            document.getElementById(tabId).classList.add("active");
+            
+            // Highlight button
+            if (tabId === 'docs-tab') document.getElementById('tab-btn-docs').classList.add('active');
+            else if (tabId === 'orch-tab') document.getElementById('tab-btn-orch').classList.add('active');
+        }
+    </script>
+</body>
+</html>
