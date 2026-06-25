@@ -118,11 +118,17 @@ export interface JobResults {
 }
 
 // ── Token usage ────────────────────────────────────────────────────
-// May be { available: false } with no figures — always guard.
+// Real shape from job.token_usage: per-phase + job totals (+ raw calls).
+// Null on jobs created before usage tracking. Guard every consumer.
+export interface TokenTotals {
+  total_tokens: number
+  cost_usd: number
+}
 export interface TokenUsage {
-  available: boolean
-  total_cost?: number
-  total_tokens?: number
+  job_total?: TokenTotals
+  phases?: Record<string, TokenTotals>
+  calls?: unknown[]
+  available?: boolean // legacy /token-usage endpoint variant
   [k: string]: unknown
 }
 

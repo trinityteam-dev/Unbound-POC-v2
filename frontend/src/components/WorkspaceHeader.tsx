@@ -1,8 +1,8 @@
 import { Badge, Box, Group, Text } from '@mantine/core'
 import type { JobDetail } from '../api/types'
-import { formatCost } from '../api/format'
 import { statusMeta } from '../lib/status'
 import { tokens } from '../theme'
+import { TokenCost } from './TokenCost'
 import { WorkflowTimeline } from './WorkflowTimeline'
 
 // Persistent header band (spec §4): identity & status / timeline / sub-tabs.
@@ -30,7 +30,6 @@ export function WorkspaceHeader({
   onSubTabChange,
 }: WorkspaceHeaderProps) {
   const meta = statusMeta[job.status]
-  const cost = formatCost(job.token_usage)
 
   return (
     <Box
@@ -53,12 +52,8 @@ export function WorkspaceHeader({
             </Text>
           ) : null}
         </div>
-        <Group gap="md" wrap="nowrap">
-          {cost && (
-            <Text fz={12.5} c={tokens.textTertiary} className="tabular-nums">
-              {cost}
-            </Text>
-          )}
+        <Group gap="lg" wrap="nowrap" align="flex-start">
+          <TokenCost usage={job.token_usage} />
           <Badge color={meta.color} variant="light" radius="sm" size="md">
             {meta.label}
           </Badge>

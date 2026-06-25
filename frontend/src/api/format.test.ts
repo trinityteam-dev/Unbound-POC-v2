@@ -76,14 +76,13 @@ describe('formatTokens', () => {
 })
 
 describe('formatCost', () => {
-  it('returns null when usage is unavailable', () => {
+  it('returns null when there is no job total', () => {
     expect(formatCost(null)).toBeNull()
-    expect(formatCost({ available: false })).toBeNull()
+    expect(formatCost({})).toBeNull()
+    expect(formatCost({ job_total: {} })).toBeNull()
   })
-  it('joins cost and tokens when available', () => {
-    expect(formatCost({ available: true, total_cost: 1.03, total_tokens: 248_000 })).toBe(
-      '$1.03 · 248k tok',
-    )
+  it('formats the job total cost to 3 decimals', () => {
+    expect(formatCost({ job_total: { cost_usd: 0.079878 } })).toBe('$0.080')
   })
 })
 

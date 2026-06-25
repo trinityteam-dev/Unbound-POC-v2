@@ -76,17 +76,11 @@ export function formatTokens(n: number | null | undefined): string {
   return n >= 1000 ? `${Math.round(n / 1000)}k tok` : `${n} tok`
 }
 
-/** Header cost line "$1.03 · 248k tok"; null when usage is unavailable. */
+/** Job total cost as "$0.080" (3 decimals); null when unavailable. */
 export function formatCost(
-  usage:
-    | { available: boolean; total_cost?: number; total_tokens?: number }
-    | null
-    | undefined,
+  usage: { job_total?: { cost_usd?: number } } | null | undefined,
 ): string | null {
-  if (!usage || !usage.available) return null
-  const parts: string[] = []
-  if (usage.total_cost != null) parts.push(`$${usage.total_cost.toFixed(2)}`)
-  const toks = formatTokens(usage.total_tokens)
-  if (toks) parts.push(toks)
-  return parts.length ? parts.join(' · ') : null
+  const cost = usage?.job_total?.cost_usd
+  if (cost == null) return null
+  return `$${cost.toFixed(3)}`
 }
