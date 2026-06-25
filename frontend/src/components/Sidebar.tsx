@@ -195,7 +195,11 @@ export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
         </UnstyledButton>
       </Box>
 
-      <Stack gap={2} style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+      <Stack
+        gap={2}
+        className="sidebar-scroll"
+        style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 6 }}
+      >
         {jobs.isLoading ? (
           <Loader size="xs" color="brand" />
         ) : jobs.isError ? (
