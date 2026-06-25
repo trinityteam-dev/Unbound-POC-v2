@@ -44,7 +44,9 @@ export default function App() {
       navbar={{ width: 320, breakpoint: 'sm', collapsed: { mobile: !navOpened } }}
       padding={0}
     >
-      <AppShell.Header style={{ borderBottom: `1px solid ${tokens.hairline}` }}>
+      <AppShell.Header
+        style={{ background: tokens.surface, borderBottom: `1px solid ${tokens.hairline}` }}
+      >
         <AppHeader
           activeStep={activeStep}
           step2Enabled={step2Enabled}

@@ -37,8 +37,8 @@ export function ReconciliationCard({ recon }: { recon: ReconciliationResults | u
                   padding: '3px 9px',
                   borderRadius: 6,
                   fontWeight: i === active ? 600 : 400,
-                  color: i === active ? '#0F766E' : tokens.textSecondary,
-                  background: i === active ? '#E1F2F0' : 'transparent',
+                  color: i === active ? tokens.accentTeal : tokens.textSecondary,
+                  background: i === active ? tokens.primaryTint : 'transparent',
                 }}
               >
                 {a.account_number}
@@ -78,13 +78,13 @@ export function ReconciliationCard({ recon }: { recon: ReconciliationResults | u
                     <Text fz={12.5}>{t.description}</Text>
                   </Table.Td>
                   <Table.Td ta="right" className="tabular-nums">
-                    <Text fz={12.5} c={t.credit != null ? '#16A34A' : tokens.textPrimary}>
+                    <Text fz={12.5} c={t.credit != null ? tokens.success : tokens.textPrimary}>
                       {formatAud(amount)}
                     </Text>
                   </Table.Td>
                   <Table.Td ta="center">
                     {matched ? (
-                      <IconCheck size={16} color="#16A34A" />
+                      <IconCheck size={16} color={tokens.success} />
                     ) : (
                       <Tooltip
                         label={t.unmatched_reason ?? 'Unmatched'}
@@ -92,7 +92,7 @@ export function ReconciliationCard({ recon }: { recon: ReconciliationResults | u
                         w={260}
                         withArrow
                       >
-                        <IconHelpCircle size={16} color="#B45309" />
+                        <IconHelpCircle size={16} color={tokens.warn} />
                       </Tooltip>
                     )}
                   </Table.Td>

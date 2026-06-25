@@ -82,7 +82,7 @@ function SecuritiesCard({ portfolio }: { portfolio: Any | undefined }) {
       <DefRow label="Broker market value" value={money(mxt.broker_market_value)} />
       <DefRow label="Registry market value" value={money(mxt.registry_market_value)} />
       {variance != null && variance !== 0 && (
-        <Text fz={12.5} c="#B45309" mt={4}>
+        <Text fz={12.5} c={tokens.warn} mt={4}>
           ⚠ Pricing variance of {formatAud(Math.abs(variance))} between broker and registry.
         </Text>
       )}
@@ -119,7 +119,7 @@ function TaxCard({ tax }: { tax: Any | undefined }) {
         ))}
       </Stack>
       {outstanding.FY25 ? (
-        <Text fz={12.5} c="#B45309" mt="sm">
+        <Text fz={12.5} c={tokens.warn} mt="sm">
           FY25 returns: {String(outstanding.FY25)}
           {outstanding.details ? ` — ${String(outstanding.details)}` : ''}
         </Text>

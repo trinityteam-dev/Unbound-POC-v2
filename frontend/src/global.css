@@ -1,5 +1,5 @@
 :root {
-  --canvas: #f7f8fa;
+  --canvas: #121316;
 }
 
 html,
@@ -48,16 +48,16 @@ body {
 
 /* Hover affordances (inline styles can't do :hover) */
 .app-tab:hover {
-  background: rgba(0, 0, 0, 0.035);
+  background: rgba(255, 255, 255, 0.05);
 }
 .subtab-seg:hover {
-  color: #16212b;
+  color: #e7e9ec;
 }
 .job-row:hover {
   background: rgba(255, 255, 255, 0.05);
 }
 .job-row-light:hover {
-  background: rgba(15, 23, 42, 0.04);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 /* Job-executions scroll panel — a subtly lifted surface on the dark sidebar

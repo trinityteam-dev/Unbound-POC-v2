@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Box, SimpleGrid, Stack, Text } from '@mantine/core'
 import { IconLoader2 } from '@tabler/icons-react'
 import type { AuditorNote, ClientQuery, JobDetail } from '../../api/types'
+import { tokens } from '../../theme'
 import type { Step2Tab } from '../WorkspaceHeader'
 import { AgentLogs } from './AgentLogs'
 import { Compliance } from './Compliance'
@@ -19,14 +20,14 @@ function RunningBanner() {
         display: 'flex',
         alignItems: 'center',
         gap: 10,
-        background: '#E1F2F0',
-        border: '1px solid #B7E0DA',
+        background: tokens.primaryTint,
+        border: `1px solid rgba(45,212,191,.28)`,
         borderRadius: 10,
         padding: '12px 16px',
       }}
     >
-      <IconLoader2 size={18} color="#0F766E" className="wf-spin" />
-      <Text fz={13} c="#0F766E">
+      <IconLoader2 size={18} color={tokens.accentTeal} className="wf-spin" />
+      <Text fz={13} c={tokens.accentTeal}>
         AI reviewer is reconciling balances — results will populate as they complete.
       </Text>
     </Box>

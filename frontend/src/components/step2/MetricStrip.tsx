@@ -18,10 +18,10 @@ export interface MetricStripProps {
 export function MetricStrip({ total, matched, unmatched, queries, exceptions }: MetricStripProps) {
   const stats: Stat[] = [
     { label: 'Transactions', value: total },
-    { label: 'Matched', value: matched, color: '#16A34A' },
-    { label: 'Unmatched', value: unmatched, color: '#B45309' },
+    { label: 'Matched', value: matched, color: tokens.success },
+    { label: 'Unmatched', value: unmatched, color: tokens.warn },
     { label: 'Queries', value: queries },
-    { label: 'Exceptions', value: exceptions, color: exceptions > 0 ? '#DC2626' : undefined },
+    { label: 'Exceptions', value: exceptions, color: exceptions > 0 ? tokens.danger : undefined },
   ]
 
   return (

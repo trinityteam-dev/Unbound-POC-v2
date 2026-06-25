@@ -59,7 +59,7 @@ export function QueriesCard({ queries, onOpen }: QueriesCardProps) {
                     {q.status} · {q.transactions.length} txns
                   </Text>
                 </div>
-                <Text fz={12.5} c="#0F766E" fw={500}>
+                <Text fz={12.5} c={tokens.accentTeal} fw={500}>
                   Open
                 </Text>
               </Group>

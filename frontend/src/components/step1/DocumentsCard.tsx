@@ -58,7 +58,7 @@ export function DocumentsCard({ jobId, files, editable, onOverride }: DocumentsC
                 return (
                   <Table.Tr
                     key={`${f.classified_name}-${i}`}
-                    style={{ background: isApprovedRow ? undefined : '#FEF9F0' }}
+                    style={{ background: isApprovedRow ? undefined : tokens.amberTint }}
                   >
                     <Table.Td style={{ wordBreak: 'break-word' }}>
                       {isRealFile ? (
@@ -87,7 +87,7 @@ export function DocumentsCard({ jobId, files, editable, onOverride }: DocumentsC
                       <Text fz={13}>{formatShortDate(f.date)}</Text>
                     </Table.Td>
                     <Table.Td>
-                      <Text fz={13} fw={500} c={isApprovedRow ? '#16A34A' : '#B45309'}>
+                      <Text fz={13} fw={500} c={isApprovedRow ? tokens.success : tokens.warn}>
                         {isApprovedRow ? 'Approved' : 'Pending'}
                       </Text>
                     </Table.Td>

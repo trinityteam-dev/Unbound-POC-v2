@@ -72,7 +72,7 @@ export function WorkspaceHeader({
             style={{
               display: 'inline-flex',
               gap: 2,
-              background: '#EEF2F2',
+              background: tokens.segBg,
               borderRadius: 10,
               padding: 4,
             }}
@@ -92,9 +92,9 @@ export function WorkspaceHeader({
                     borderRadius: 8,
                     fontSize: 12.5,
                     fontWeight: active ? 600 : 500,
-                    background: active ? '#FFFFFF' : 'transparent',
-                    color: active ? '#0F766E' : tokens.textSecondary,
-                    boxShadow: active ? '0 1px 2px rgba(22,33,43,.14)' : 'none',
+                    background: active ? tokens.segActive : 'transparent',
+                    color: active ? tokens.accentTeal : tokens.textSecondary,
+                    boxShadow: 'none',
                     transition: 'color 120ms ease',
                   }}
                 >

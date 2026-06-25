@@ -21,7 +21,7 @@ const STAGES = [
 
 const GREEN = tokens.primaryGreen
 const TINT = tokens.primaryTint
-const NEUTRAL = '#EEF0F4'
+const NEUTRAL = tokens.neutralFill
 const RED = '#E03131'
 
 function nodeStyle(state: NodeState): CSSProperties {

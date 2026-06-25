@@ -64,17 +64,25 @@ export const tokens = {
   sidebarTextMuted: 'rgba(255,255,255,.64)',
   sidebarTextFaint: 'rgba(255,255,255,.46)',
   sidebarActiveBg: 'rgba(255,255,255,.08)',
-  // Slightly more tinted canvas so white cards lift off it.
-  canvas: '#EDF1F1',
-  surface: '#FFFFFF',
-  hairline: '#E2E8E8',
-  textPrimary: '#16212B',
-  textSecondary: '#4A5763',
-  textTertiary: '#8B97A1',
-  primaryGreen: '#0D9488', // primary (teal)
-  primaryTint: '#E1F2F0',
+  // Dark workspace. Canvas (base) < surface (cards) so cards lift off it.
+  canvas: '#121316',
+  surface: '#1C1D21',
+  hairline: 'rgba(255,255,255,.09)',
+  textPrimary: '#E7E9EC',
+  textSecondary: '#A6ABB3',
+  textTertiary: '#71767E',
+  primaryGreen: '#0D9488', // brand teal (solid fills: timeline, buttons)
+  primaryTint: 'rgba(45,212,191,.16)', // active timeline-node fill on dark
   accent: '#F59E0B', // amber — active/current indicators
-  // Deeper elevation so cards read as raised.
-  shadowCard: '0 1px 3px rgba(22,33,43,.06), 0 4px 12px rgba(22,33,43,.08)',
-  shadowCardHover: '0 2px 6px rgba(22,33,43,.08), 0 10px 24px rgba(22,33,43,.12)',
+  accentTeal: '#2DD4BF', // brighter teal for text/links/active on dark
+  segBg: 'rgba(255,255,255,.06)', // segmented-control track
+  segActive: 'rgba(255,255,255,.13)', // segmented-control active chip
+  amberTint: 'rgba(245,158,11,.12)', // amber row-tint (rows needing review)
+  neutralFill: 'rgba(255,255,255,.10)', // upcoming timeline node
+  success: '#34D399',
+  warn: '#FBBF24',
+  danger: '#F87171',
+  // Shadows are faint on dark — borders carry most of the separation.
+  shadowCard: '0 1px 2px rgba(0,0,0,.35), 0 4px 14px rgba(0,0,0,.28)',
+  shadowCardHover: '0 6px 20px rgba(0,0,0,.4)',
 } as const
