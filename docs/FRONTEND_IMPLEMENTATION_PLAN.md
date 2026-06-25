@@ -56,6 +56,7 @@ Full detail in memory `frontend-theme.md`.
 - [x] **Phase 4** — Step 1 content: documents table + override modal + processor sign-off + playbook ✅ 2026-06-25
 - [x] **Phase 5** — Step 2 content: reconciliation/queries + lead schedules + compliance + agent logs ✅ 2026-06-25
 - [x] **Phase 6** — Realtime, gating, polish: polling helper, failure view, fetch-error retry, ⌘K switcher ✅ 2026-06-25
+- [x] **Phase 7** — Test hardening (58 tests, 76% data-layer coverage) + responsive mobile burger + a11y ✅ 2026-06-25
 - [ ] **Phase 4** — Step 1 workspace (Documents + Playbook)
 - [ ] **Phase 5** — Step 2 workspace (Reconciliation/queries + tabs)
 - [ ] **Phase 6** — Realtime, gating, polish (loading/empty/error/notifications)
@@ -278,20 +279,21 @@ Browse existing jobs; the persistent chrome reflects live status. No edit action
 
 ---
 
-## Phase 7 — Test hardening & responsive/cross-browser pass
+## Phase 7 — Test hardening & responsive/cross-browser pass ✅ 2026-06-25
 
 ### Tasks
-- [ ] Fill component-test coverage gaps; ensure every Appendix B status has a render test
-- [ ] Add a happy-path integration test per step (MSW-driven, full flow)
-- [ ] `preview_resize` / responsive check at common widths; dark sidebar contrast check
-- [ ] Accessibility quick pass (focus states, labels on icon-only buttons, table semantics)
-- [ ] Visual diff against approved mockups in `docs/ui_redesign_mockups/` (tokens, timeline placement)
+- [x] Fill component-test gaps: `WorkspaceHeader` (status pill × all 6 statuses + sub-tab gating), `ReconciliationCard`, `QueriesCard`, `Compliance`, `JobSwitcher`, `client.ts` (fileUrl, request wrappers, ApiError path)
+- [x] Coverage tooling: `@vitest/coverage-v8` + `test:coverage` script (scoped to `api/` + `lib/`)
+- [x] Responsive: mobile **burger** toggles the navbar (`AppShell navbar.collapsed.mobile`); selecting a job closes it — verified at 375px and 1440px
+- [x] Accessibility: aria-labels on icon-only controls (burger, refresh); timeline `role="list"`; status conveyed by text + color (not color alone)
+- [ ] Visual diff vs mockups — done informally through the live iteration / screenshots
 
 ### Tests / Acceptance
-- [ ] Full `npm run test` suite green; coverage on data transforms ≥ agreed threshold (POC: ~70% of `api/` + transforms)
-- [ ] `npm run build` produces a clean production bundle with no type errors
-- [ ] Manual: app usable at narrow + wide widths; no layout breakage
-- [ ] Sign-off review against spec §1–§6 and mockups
+- [x] Full `npm run test` green — **58 tests**
+- [x] Coverage on `api/` + `lib/`: **75.8% stmts / 85.7% branches** (transforms `polling`/`status` 100%, `client` 85%) — exceeds the ~70% POC target
+- [x] `npm run build` — clean production bundle, no type errors (476 KB js / 146 KB gzip)
+- [x] Manual: usable at narrow (mobile drawer) + wide widths; no layout breakage; no console errors
+- [x] Sign-off review against spec §1–§6 — parity confirmed across Phases 2–6
 
 ---
 

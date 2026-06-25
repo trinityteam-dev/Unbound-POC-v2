@@ -190,7 +190,7 @@ export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
         mb="xs"
       >
         <Text style={SECTION_TITLE}>Job Executions</Text>
-        <UnstyledButton onClick={() => jobs.refetch()} title="Refresh">
+        <UnstyledButton onClick={() => jobs.refetch()} title="Refresh" aria-label="Refresh jobs">
           <IconRefresh size={14} color={tokens.sidebarTextFaint} />
         </UnstyledButton>
       </Box>

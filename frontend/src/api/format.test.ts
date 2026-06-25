@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  formatAud,
+  formatCost,
   formatMoney,
+  formatRelative,
   formatShortDate,
+  formatTokens,
   parseAmount,
   parseCreatedAt,
   parseShortDate,
@@ -53,5 +57,43 @@ describe('parseCreatedAt', () => {
   })
   it('handles null', () => {
     expect(parseCreatedAt(null)).toBeNull()
+  })
+})
+
+describe('formatAud', () => {
+  it('formats a numeric amount; em-dash when null', () => {
+    expect(formatAud(270.41)).toBe('$270.41')
+    expect(formatAud(null)).toBe('—')
+  })
+})
+
+describe('formatTokens', () => {
+  it('compacts thousands and handles small/absent values', () => {
+    expect(formatTokens(248_000)).toBe('248k tok')
+    expect(formatTokens(500)).toBe('500 tok')
+    expect(formatTokens(null)).toBe('')
+  })
+})
+
+describe('formatCost', () => {
+  it('returns null when usage is unavailable', () => {
+    expect(formatCost(null)).toBeNull()
+    expect(formatCost({ available: false })).toBeNull()
+  })
+  it('joins cost and tokens when available', () => {
+    expect(formatCost({ available: true, total_cost: 1.03, total_tokens: 248_000 })).toBe(
+      '$1.03 · 248k tok',
+    )
+  })
+})
+
+describe('formatRelative', () => {
+  it('returns empty for missing dates', () => {
+    expect(formatRelative(null)).toBe('')
+  })
+  it('produces a relative string for a past timestamp', () => {
+    const past = parseCreatedAt('2020-01-01 00:00:00')!
+    expect(formatRelative('2020-01-01 00:00:00')).toMatch(/ago$/)
+    expect(past.getFullYear()).toBe(2020)
   })
 })

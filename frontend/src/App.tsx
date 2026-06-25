@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AppShell } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import { useJobDetails, useJobs } from './api/hooks'
 import { AppHeader } from './components/AppHeader'
 import { JobSwitcher } from './components/JobSwitcher'
@@ -11,10 +12,17 @@ import { tokens } from './theme'
 export default function App() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [activeStep, setActiveStep] = useState<1 | 2>(1)
+  const [navOpened, { toggle: toggleNav, close: closeNav }] = useDisclosure(false)
 
   const jobs = useJobs()
   const details = useJobDetails(selectedJobId)
   const job = details.data
+
+  // Select a job and close the mobile nav drawer if it was open.
+  function selectJob(jobId: string) {
+    setSelectedJobId(jobId)
+    closeNav()
+  }
 
   // Auto-select the first job once the list loads (demo convenience).
   useEffect(() => {
@@ -33,7 +41,7 @@ export default function App() {
   return (
     <AppShell
       header={{ height: 64 }}
-      navbar={{ width: 320, breakpoint: 'sm' }}
+      navbar={{ width: 320, breakpoint: 'sm', collapsed: { mobile: !navOpened } }}
       padding={0}
     >
       <AppShell.Header style={{ borderBottom: `1px solid ${tokens.hairline}` }}>
@@ -41,11 +49,13 @@ export default function App() {
           activeStep={activeStep}
           step2Enabled={step2Enabled}
           onStepChange={setActiveStep}
+          navOpened={navOpened}
+          onBurgerClick={toggleNav}
         />
       </AppShell.Header>
 
       <AppShell.Navbar withBorder={false} style={{ border: 'none' }}>
-        <Sidebar selectedJobId={selectedJobId} onSelectJob={setSelectedJobId} />
+        <Sidebar selectedJobId={selectedJobId} onSelectJob={selectJob} />
       </AppShell.Navbar>
 
       <AppShell.Main
@@ -65,7 +75,7 @@ export default function App() {
         />
       </AppShell.Main>
 
-      <JobSwitcher jobs={jobs.data} onSelect={setSelectedJobId} />
+      <JobSwitcher jobs={jobs.data} onSelect={selectJob} />
     </AppShell>
   )
 }

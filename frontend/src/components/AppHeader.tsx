@@ -1,4 +1,4 @@
-import { Group, Text } from '@mantine/core'
+import { Burger, Group, Text } from '@mantine/core'
 import {
   IconBriefcase,
   IconChartBar,
@@ -17,6 +17,8 @@ export interface AppHeaderProps {
   activeStep: 1 | 2
   step2Enabled: boolean
   onStepChange: (step: 1 | 2) => void
+  navOpened?: boolean
+  onBurgerClick?: () => void
 }
 
 function Tab({
@@ -62,9 +64,23 @@ function Tab({
   )
 }
 
-export function AppHeader({ activeStep, step2Enabled, onStepChange }: AppHeaderProps) {
+export function AppHeader({
+  activeStep,
+  step2Enabled,
+  onStepChange,
+  navOpened,
+  onBurgerClick,
+}: AppHeaderProps) {
   return (
     <Group h="100%" px="md" gap={0} wrap="nowrap" style={{ overflow: 'hidden' }}>
+      <Burger
+        opened={navOpened}
+        onClick={onBurgerClick}
+        hiddenFrom="sm"
+        size="sm"
+        mr="sm"
+        aria-label="Toggle navigation"
+      />
       <Group gap={8} pr="lg" wrap="nowrap">
         <div
           style={{
