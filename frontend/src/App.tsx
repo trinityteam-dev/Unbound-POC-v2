@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AppShell } from '@mantine/core'
 import { useJobDetails, useJobs } from './api/hooks'
 import { AppHeader } from './components/AppHeader'
+import { JobSwitcher } from './components/JobSwitcher'
 import { Sidebar } from './components/Sidebar'
 import { Workspace } from './components/Workspace'
 import { isPhase2 } from './lib/status'
@@ -58,9 +59,13 @@ export default function App() {
         <Workspace
           job={job}
           isLoading={!!selectedJobId && details.isLoading}
+          isError={details.isError}
+          onRetry={() => details.refetch()}
           activeStep={activeStep}
         />
       </AppShell.Main>
+
+      <JobSwitcher jobs={jobs.data} onSelect={setSelectedJobId} />
     </AppShell>
   )
 }

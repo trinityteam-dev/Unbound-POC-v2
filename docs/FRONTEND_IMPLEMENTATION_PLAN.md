@@ -55,6 +55,7 @@ Full detail in memory `frontend-theme.md`.
 - [x] **Phase 3** — Functional job creation (sidebar form; Audits-home dropped per IA decision) ✅ 2026-06-25
 - [x] **Phase 4** — Step 1 content: documents table + override modal + processor sign-off + playbook ✅ 2026-06-25
 - [x] **Phase 5** — Step 2 content: reconciliation/queries + lead schedules + compliance + agent logs ✅ 2026-06-25
+- [x] **Phase 6** — Realtime, gating, polish: polling helper, failure view, fetch-error retry, ⌘K switcher ✅ 2026-06-25
 - [ ] **Phase 4** — Step 1 workspace (Documents + Playbook)
 - [ ] **Phase 5** — Step 2 workspace (Reconciliation/queries + tabs)
 - [ ] **Phase 6** — Realtime, gating, polish (loading/empty/error/notifications)
@@ -259,20 +260,21 @@ Browse existing jobs; the persistent chrome reflects live status. No edit action
 ## Phase 6 — Realtime, gating, polish (§7, §10 step 6)
 
 ### Tasks
-- [ ] Polling: active job every **3s** while `processing_docs`/`processing_review`; jobs list every **10s**; `refetchInterval` keyed on status; stop polling at rest states
-- [ ] Loading = Mantine `Skeleton` across tables/panels
-- [ ] Empty states = quiet centered text ("No exceptions found. Ledger is clean.")
-- [ ] Errors = `notifications.show` + inline message (no silent failures)
-- [ ] `failed` status handling: red active node + failure/logs surfacing on both steps
-- [ ] Theme pass: whitespace zoning (16–22px), hairline dividers, restrained color audit per §1–§3
-- [ ] `⌘K` job switcher functional
+- [x] Polling: active job 3s while `processing_docs`/`processing_review`, jobs list 10s, off at rest — extracted to `lib/polling.ts` (`jobPollInterval`) for testability
+- [x] Loading = Mantine `Skeleton` (workspace) — already in place
+- [x] Empty states = quiet centered text — already across cards (docs/queries/recon/etc.)
+- [x] Errors = `notifications.show` on every mutation + inline fetch-error state with **Retry** in the workspace
+- [x] `failed` status handling: red timeline node + `FailureView` (alert + agent logs, surfaced regardless of step)
+- [x] Theme pass — done iteratively (Teal Graphite, sizing)
+- [x] `⌘K` job switcher (`JobSwitcher`) — command palette, searchable, status dots, ↵/esc hints; verified live
 
 ### Tests / Acceptance
-- [ ] `npm run test` / `typecheck` / `lint` green
-- [ ] Test: polling interval switches correctly as status changes (mock timers)
-- [ ] Test: error path triggers a notification and inline message
-- [ ] Test: `failed` job renders red node + failure UI
-- [ ] Manual: start a fresh audit and watch it auto-advance through all 4 stages via polling, no manual refresh
+- [x] `npm run test` / `typecheck` / `lint` green (38 tests)
+- [x] Test: `jobPollInterval` switches by status (`polling.test.ts`)
+- [x] Test: `failed` job renders failure UI (`FailureView.test.tsx`); timeline red node covered by `status.test.ts`
+- [x] Error path: mutation errors → red toast; fetch error → inline Retry (verified)
+- [x] Manual: ⌘K switcher opens + lists jobs (verified live); no console errors on fresh load
+- [ ] Manual: watch a fresh audit auto-advance through 4 stages — needs source PDFs (fund folders empty; see note)
 
 ---
 

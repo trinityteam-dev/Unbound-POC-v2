@@ -1,23 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
+import { JOBS_LIST_POLL_MS, jobPollInterval } from '../lib/polling'
 import type {
   CreateJobPayload,
-  JobStatus,
   ProcessorReviewPayload,
   QueryStatusPayload,
   ReviewerReviewPayload,
   SavePlaybookPayload,
 } from './types'
 
-// Statuses where an AI stage is running → poll fast (spec §7).
-const ACTIVE_STATUSES: JobStatus[] = ['processing_docs', 'processing_review']
-
 /** Jobs list — polled every 10s (spec §7). */
 export function useJobs() {
   return useQuery({
     queryKey: ['jobs'],
     queryFn: api.getJobs,
-    refetchInterval: 10_000,
+    refetchInterval: JOBS_LIST_POLL_MS,
   })
 }
 
@@ -30,10 +27,7 @@ export function useJobDetails(jobId: string | null) {
     queryKey: ['job', jobId],
     queryFn: () => api.getJobDetails(jobId as string),
     enabled: !!jobId,
-    refetchInterval: (query) => {
-      const status = query.state.data?.status
-      return status && ACTIVE_STATUSES.includes(status) ? 3_000 : false
-    },
+    refetchInterval: (query) => jobPollInterval(query.state.data?.status),
   })
 }
 
