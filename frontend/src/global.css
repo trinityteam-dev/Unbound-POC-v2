@@ -1,0 +1,49 @@
+:root {
+  --canvas: #f7f8fa;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-size: 14px;
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Money / number columns — spec §3 */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Pulsing ring on an in-progress AI timeline node (spec §4.1) */
+@keyframes wfPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(13, 148, 136, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(13, 148, 136, 0);
+  }
+}
+.wf-pulse {
+  animation: wfPulse 1.8s infinite;
+}
+
+/* Hover affordances (inline styles can't do :hover) */
+.app-tab:hover {
+  background: rgba(0, 0, 0, 0.035);
+}
+.subtab-seg:hover {
+  color: #16212b;
+}
+.job-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}

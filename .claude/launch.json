@@ -7,6 +7,14 @@
       "runtimeArgs": ["app.py"],
       "port": 5001,
       "autoPort": false
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "frontend",
+      "port": 5173,
+      "autoPort": false
     }
   ]
 }

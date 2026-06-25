@@ -1,0 +1,552 @@
+{
+  "abn": "89 292 949 026",
+  "auditor_notes": [
+    {
+      "description": "No trust deed or governing documents provided in the working papers.",
+      "title": "Missing Document: Trust Deed",
+      "type": "error"
+    },
+    {
+      "description": "No change of trustee documentation provided.",
+      "title": "Missing Document: Change of Trustee",
+      "type": "error"
+    },
+    {
+      "description": "No ATO trustee declaration provided.",
+      "title": "Missing Document: ATO Trustee Declaration",
+      "type": "error"
+    },
+    {
+      "description": "No investment strategy document provided.",
+      "title": "Missing Document: Investment Strategy",
+      "type": "error"
+    },
+    {
+      "description": "No enduring power of attorney provided.",
+      "title": "Missing Document: Enduring Power of Attorney",
+      "type": "error"
+    },
+    {
+      "description": "No death benefit nominations provided.",
+      "title": "Missing Document: Death Benefit Nominations",
+      "type": "error"
+    },
+    {
+      "description": "No prior year audit reports or financial statements provided.",
+      "title": "Missing Document: Prior Year Audit Reports / Financials",
+      "type": "error"
+    },
+    {
+      "description": "No ASIC company extract or statement provided.",
+      "title": "Missing Document: ASIC Statement/Extract",
+      "type": "error"
+    },
+    {
+      "description": "No signed financial statements for FY25 provided.",
+      "title": "Missing Document: Signed Financial Statements",
+      "type": "error"
+    },
+    {
+      "description": "No copy of the lodged tax return provided; ATO activity statement shows tax refund processed.",
+      "title": "Missing Document: Annual Tax Return",
+      "type": "error"
+    },
+    {
+      "description": "No trustee minutes or resolutions provided.",
+      "title": "Missing Document: Trustee Minutes",
+      "type": "error"
+    },
+    {
+      "description": "No member benefit statements provided.",
+      "title": "Missing Document: Member Statements",
+      "type": "error"
+    },
+    {
+      "description": "No audit engagement or representation letters provided.",
+      "title": "Missing Document: Audit Engagement & Representation Letters",
+      "type": "error"
+    },
+    {
+      "description": "Significant reduction in TSB from $2,159,140.32 at 30/06/2024 to $8,680.99 at 30/06/2025. This is consistent with a full roll-over or transfer out of the SMSF balance to the AMP Super Fund during FY25. Remaining SMSF balance appears to be residual cash/holdings after wind-down activities. No pension phase reported.",
+      "title": "Member Balance Variance Exception",
+      "type": "error"
+    },
+    {
+      "description": "A pricing variance of $280.00 exists for MXT holding. Ord Minnett values it at ASX close price, Automic values at NAV.",
+      "title": "Security Registry Price Discrepancy",
+      "type": "warning"
+    }
+  ],
+  "created_at": "2026-05-31 11:10:01",
+  "files": [
+    {
+      "account_number": null,
+      "amount": null,
+      "category": "Portfolio Valuation",
+      "classified_name": "Portfolio Valuation at 30.06.25.pdf",
+      "date": "30.06.25",
+      "notes": "Manually verified by human processor.",
+      "original_name": "FY25 Periodic Statement - Metrics .pdf",
+      "status": "Approved"
+    },
+    {
+      "account_number": null,
+      "amount": null,
+      "category": "Income Tax",
+      "classified_name": "Income Tax.pdf",
+      "date": null,
+      "notes": "",
+      "original_name": "2025 Tax Statement - Metrics .pdf",
+      "status": "Approved"
+    },
+    {
+      "account_number": null,
+      "amount": null,
+      "category": "Income Tax Activity",
+      "classified_name": "Income Tax Activity.pdf",
+      "date": null,
+      "notes": "",
+      "original_name": "ADMCM - ICA.pdf",
+      "status": "Approved"
+    },
+    {
+      "account_number": null,
+      "amount": null,
+      "category": "Total Super annuation balance",
+      "classified_name": "Total Super annuation balance.pdf",
+      "date": null,
+      "notes": "",
+      "original_name": "AM - TSB.pdf",
+      "status": "Approved"
+    },
+    {
+      "account_number": null,
+      "amount": "270.41",
+      "category": "Accountancy",
+      "classified_name": "Accountancy - $270.41.pdf",
+      "date": null,
+      "notes": "",
+      "original_name": "RI34193.pdf",
+      "status": "Approved"
+    },
+    {
+      "account_number": null,
+      "amount": null,
+      "category": "Income Tax",
+      "classified_name": "Income Tax.pdf",
+      "date": null,
+      "notes": "",
+      "original_name": "ADMCM - ITA.pdf",
+      "status": "Approved"
+    },
+    {
+      "account_number": null,
+      "amount": "517.00",
+      "category": "Audit Invoice",
+      "classified_name": "Audit Invoice.pdf",
+      "date": null,
+      "notes": "",
+      "original_name": "2024 Audit Invoice (6).pdf",
+      "status": "Approved"
+    },
+    {
+      "account_number": null,
+      "amount": null,
+      "category": "Portfolio Valuation",
+      "classified_name": "Portfolio Valuation at 01.07.24.pdf",
+      "date": "01.07.24",
+      "notes": "",
+      "original_name": "Portfolio_Valuation at 01.07.24.pdf",
+      "status": "Approved"
+    },
+    {
+      "account_number": null,
+      "amount": null,
+      "category": "Portfolio Valuation",
+      "classified_name": "Portfolio Valuation at 30.06.25.pdf",
+      "date": "30.06.25",
+      "notes": "",
+      "original_name": "Portfolio_Valuation at 30.06.25.pdf",
+      "status": "Approved"
+    },
+    {
+      "account_number": null,
+      "amount": null,
+      "category": "Portfolio Valuation",
+      "classified_name": "Portfolio Valuation at 30.06.25.pdf",
+      "date": "30.06.25",
+      "notes": "",
+      "original_name": "Ledger_Summary. 01.07.24 to 30.06.25.pdf",
+      "status": "Approved"
+    },
+    {
+      "account_number": "06716720642566",
+      "amount": null,
+      "category": "Bank Statement - 06716720642566",
+      "classified_name": "Bank Statement - 06716720642566.pdf",
+      "date": null,
+      "notes": "",
+      "original_name": "[Grouped pages from 18 sources]",
+      "status": "Approved"
+    },
+    {
+      "account_number": "06200016743999",
+      "amount": null,
+      "category": "Bank Statement - 06200016743999",
+      "classified_name": "Bank Statement - 06200016743999.pdf",
+      "date": null,
+      "notes": "",
+      "original_name": "[Grouped pages from 7 sources]",
+      "status": "Approved"
+    }
+  ],
+  "fund_id": "admcm",
+  "fund_name": "ADMCM Investments Super Fund",
+  "job_id": "job_20260531_111001",
+  "job_type": "Accounting_Audit",
+  "logs": [
+    "[11:10:01] Job created for fund 'ADMCM Investments Super Fund' under playbook 'Accounting_Audit'.",
+    "[11:10:01] Scanning folder and initiating AI Processor Agent...",
+    "[11:10:01] AI Processor: Scanning input folder...",
+    "[11:10:01] Classifying: FY25 Periodic Statement - Metrics .pdf",
+    "[11:10:01] Running OCR fallback on scanned PDF: FY25 Periodic Statement - Metrics .pdf",
+    "[11:10:03] Classified and copied: FY25 Periodic Statement - Metrics .pdf -> Portfolio Valuation at 30.06.25.pdf",
+    "[11:10:03] Classifying: 2025 Tax Statement - Metrics .pdf",
+    "[11:10:03] Running OCR fallback on scanned PDF: 2025 Tax Statement - Metrics .pdf",
+    "[11:10:05] Classified and copied: 2025 Tax Statement - Metrics .pdf -> Income Tax.pdf",
+    "[11:10:05] Classifying: ADMCM - ICA.pdf",
+    "[11:10:06] Classified and copied: ADMCM - ICA.pdf -> Income Tax Activity.pdf",
+    "[11:10:06] Classifying: AM - TSB.pdf",
+    "[11:10:07] Classified and copied: AM - TSB.pdf -> Total Super annuation balance.pdf",
+    "[11:10:07] Classifying: RI34193.pdf",
+    "[11:10:08] Classified and copied: RI34193.pdf -> Accountancy - $270.41.pdf",
+    "[11:10:08] Classifying: ADMCM - ITA.pdf",
+    "[11:10:10] Classified and copied: ADMCM - ITA.pdf -> Income Tax.pdf",
+    "[11:10:10] Classifying: 2024 Audit Invoice (6).pdf",
+    "[11:10:25] Classified and copied: 2024 Audit Invoice (6).pdf -> Audit Invoice.pdf",
+    "[11:10:25] Classifying: SMSF ex[enses to 30.11.24.pdf",
+    "[11:10:26] Analyzing page account scopes in: SMSF ex[enses to 30.11.24.pdf",
+    "[11:10:26] Split and grouped pages of statement: SMSF ex[enses to 30.11.24.pdf",
+    "[11:10:26] Classifying: Portfolio_Valuation at 01.07.24.pdf",
+    "[11:10:27] Classified and copied: Portfolio_Valuation at 01.07.24.pdf -> Portfolio Valuation at 01.07.24.pdf",
+    "[11:10:27] Classifying: Portfolio_Valuation at 30.06.25.pdf",
+    "[11:10:28] Classified and copied: Portfolio_Valuation at 30.06.25.pdf -> Portfolio Valuation at 30.06.25.pdf",
+    "[11:10:28] Classifying: Statements20240830 (1).pdf",
+    "[11:10:29] Analyzing page account scopes in: Statements20240830 (1).pdf",
+    "[11:10:30] Split and grouped pages of statement: Statements20240830 (1).pdf",
+    "[11:10:30] Classifying: Statements20241130 (1).pdf",
+    "[11:10:31] Analyzing page account scopes in: Statements20241130 (1).pdf",
+    "[11:10:31] Split and grouped pages of statement: Statements20241130 (1).pdf",
+    "[11:10:31] Classifying: Statements20250228 (1).pdf",
+    "[11:10:32] Analyzing page account scopes in: Statements20250228 (1).pdf",
+    "[11:10:32] Split and grouped pages of statement: Statements20250228 (1).pdf",
+    "[11:10:32] Classifying: Ledger_Summary. 01.07.24 to 30.06.25.pdf",
+    "[11:10:33] Classified and copied: Ledger_Summary. 01.07.24 to 30.06.25.pdf -> Portfolio Valuation at 30.06.25.pdf",
+    "[11:10:33] Classifying: SMSF expenses to 30.05.25.pdf",
+    "[11:10:35] Analyzing page account scopes in: SMSF expenses to 30.05.25.pdf",
+    "[11:10:35] Split and grouped pages of statement: SMSF expenses to 30.05.25.pdf",
+    "[11:10:35] Classifying: Statements20250830.pdf",
+    "[11:10:36] Analyzing page account scopes in: Statements20250830.pdf",
+    "[11:10:36] Split and grouped pages of statement: Statements20250830.pdf",
+    "[11:10:36] Classifying: Statements20250530 (1).pdf",
+    "[11:10:37] Analyzing page account scopes in: Statements20250530 (1).pdf",
+    "[11:10:37] Split and grouped pages of statement: Statements20250530 (1).pdf",
+    "[11:10:37] Classifying: SMSF expenses to 30.11.25.pdf",
+    "[11:10:38] Analyzing page account scopes in: SMSF expenses to 30.11.25.pdf",
+    "[11:10:38] Split and grouped pages of statement: SMSF expenses to 30.11.25.pdf",
+    "[11:10:38] Merging and writing statement documents by bank account...",
+    "[11:10:39] Compiled statement file: Bank Statement - CBA Accelerator Cash Account - 06716720642566.pdf from pages: Statements20240830 (1).pdf (pages 1-5), Statements20241130 (1).pdf (pages 1-3), Statements20250228 (1).pdf (pages 1-3), Statements20250530 (1).pdf (pages 1-3), Statements20250830.pdf (pages 1-4)",
+    "[11:10:39] Compiled statement file: Bank Statement - CBA Direct Investment Bank Account - 06200016743999.pdf from pages: SMSF ex[enses to 30.11.24.pdf (pages 1-2), SMSF expenses to 30.05.25.pdf (pages 1-2), SMSF expenses to 30.11.25.pdf (pages 1-3)",
+    "[11:10:39] AI Processor Agent completed document intelligence. Classified 20 files.",
+    "[11:13:38] Human Processor signed off on document classifications. Initiated AI Reviewer Agent.",
+    "[11:13:38] Initiating AI Reviewer Agent reconciliations and calculations...",
+    "[11:13:38] AI Reviewer: Reconciling ledger balances and validating checklist...",
+    "[11:13:38] Starting dynamic audit checklist and reconciliations...",
+    "[11:13:38] Querying OpenRouter AI (x-ai/grok-4.20) for dynamic audit analysis...",
+    "[11:13:50] Successfully received audit analysis from AI!",
+    "[11:13:50] AI Reviewer Agent completed reconciliations and checklist validation.",
+    "[11:13:59] Human Reviewer signed off. Job closed successfully."
+  ],
+  "message": "Job successfully completed.",
+  "processor_notes": "All bank statements split and merged correctly. Ready for reviewer audit checks.",
+  "progress_percent": 100,
+  "results": {
+    "cash_reconciliation": {
+      "accounts": [
+        {
+          "bsb": "067-167",
+          "closing_bal_30jun25": 18647.11,
+          "name": "CBA Accelerator Cash Account",
+          "notes": "Balances extracted from bank statements; significant dividend/ distribution inflows and transfers to broker for purchases.",
+          "number": "06716720642566",
+          "opening_bal_1jul24": 40957.28
+        },
+        {
+          "bsb": "062-000",
+          "closing_bal_30jun25": 2238.41,
+          "name": "CBA Direct Investment Bank Account",
+          "notes": "Multiple $270.41 accountancy direct debits and $517 audit payment; interest credited; closing balance verified.",
+          "number": "06200016743999",
+          "opening_bal_1jul24": 7665.16
+        },
+        {
+          "bsb": "N/A (Broker Ledger)",
+          "closing_bal_30jun25": 0.0,
+          "name": "Ord Minnett Cash Account",
+          "notes": "Ledger cleared to zero following sales proceeds and EFT transfers from CBA Accelerator account.",
+          "number": "1160944",
+          "opening_bal_1jul24": -48109.12
+        }
+      ],
+      "audit_checks": [
+        {
+          "description": "ATO Income Tax Refund Reconciliation",
+          "details": "ATO statement confirms $5,674.46 refund for FY24 received 28 May 2025; matches Income Tax.pdf activity.",
+          "status": "Pass"
+        },
+        {
+          "description": "Ord Minnett Cash Transfer Reconciliation",
+          "details": "EFT transfers from CBA 06716720642566 to Ord Minnett (24,107.58 on 02/07/24, 24,001.54 on 03/07/24, 20,563.34 & 20,079.18 in Nov 2024) match broker transaction report and bank statements.",
+          "status": "Pass"
+        }
+      ]
+    },
+    "checklist": {
+      "Accounting and Audit Reports": {
+        "Annual Tax Return": {
+          "files": [],
+          "notes": "No copy of the lodged tax return provided; ATO activity statement shows tax refund processed.",
+          "status": "Missing"
+        },
+        "Audit Engagement & Representation Letters": {
+          "files": [],
+          "notes": "No audit engagement or representation letters provided.",
+          "status": "Missing"
+        },
+        "Member Statements": {
+          "files": [],
+          "notes": "No member benefit statements provided.",
+          "status": "Missing"
+        },
+        "Signed Financial Statements": {
+          "files": [],
+          "notes": "No signed financial statements for FY25 provided.",
+          "status": "Missing"
+        },
+        "Trustee Minutes": {
+          "files": [],
+          "notes": "No trustee minutes or resolutions provided.",
+          "status": "Missing"
+        }
+      },
+      "Cash at Bank": {
+        "Bank Statements (Account 06200016743999)": {
+          "files": [
+            "Bank Statement - 06200016743999.pdf"
+          ],
+          "notes": "Direct Investment Account statements provided through to 30 Nov 2025; closing balance $2,238.41.",
+          "status": "Verified"
+        },
+        "Bank Statements (Account 06716720642566)": {
+          "files": [
+            "Bank Statement - 06716720642566.pdf"
+          ],
+          "notes": "Bank statements provided for Accelerator Cash Account covering multiple periods to 28 Feb 2025; later periods not fully visible but activity reconciled to portfolio.",
+          "status": "Verified"
+        },
+        "Bank Statements (Account 1160944)": {
+          "files": [],
+          "notes": "Ord Minnett cash ledger reconciled via portfolio transaction report; opening ledger negative $48,109.12, closed to zero after transfers.",
+          "status": "Verified"
+        }
+      },
+      "Current Tax Assets/Liabilities": {
+        "ATO Client Accounts": {
+          "files": [
+            "Income Tax Activity.pdf"
+          ],
+          "notes": "ATO statements confirm zero balance at 06/04/2026; FY24 tax refund of $5,674.46 received.",
+          "status": "Verified"
+        }
+      },
+      "General Documents": {
+        "ASIC Statement/Extract": {
+          "files": [],
+          "notes": "No ASIC company extract or statement provided.",
+          "status": "Missing"
+        },
+        "Fund Wound Up": {
+          "files": [],
+          "notes": "Fund remains active with positive TSB balance.",
+          "status": "N/A"
+        },
+        "Member Joined or Left": {
+          "files": [],
+          "notes": "TSB report confirms Andrea Martignoni as the sole member; no new joins or exits noted in the period.",
+          "status": "Verified"
+        }
+      },
+      "Listed Securities & Portfolios": {
+        "Broker Transactions": {
+          "files": [],
+          "notes": "Transaction statement details buys/sells including WOW, DRO, EOS, MPL, SUBD.",
+          "status": "Verified"
+        },
+        "Portfolio Valuations": {
+          "files": [
+            "Portfolio Valuation at 01.07.24.pdf",
+            "Portfolio Valuation at 30.06.25.pdf"
+          ],
+          "notes": "Opening and closing portfolio valuations provided by Ord Minnett.",
+          "status": "Verified"
+        },
+        "Tax Statements (Managed Funds)": {
+          "files": [
+            "Income Tax.pdf"
+          ],
+          "notes": "MXT distributions referenced in provided data; tax statement values used in reconciliation.",
+          "status": "Verified"
+        },
+        "Wrap Portfolio Reports": {
+          "files": [],
+          "notes": "Not applicable; holdings held directly with Ord Minnett.",
+          "status": "N/A"
+        }
+      },
+      "Other Expenses": {
+        "Accountancy Invoices": {
+          "files": [
+            "Accountancy - $270.41.pdf"
+          ],
+          "notes": "Quantiphy accountancy invoice RI34193 for $270.41 (incl GST) paid via direct debit from CBA account 06200016743999.",
+          "status": "Verified"
+        },
+        "Audit Invoices": {
+          "files": [
+            "Audit Invoice.pdf"
+          ],
+          "notes": "Aquila Super audit invoice 87540 for $517.00 paid 21 May 2025 from CBA account 06200016743999.",
+          "status": "Verified"
+        }
+      },
+      "Permanent Documents": {
+        "ATO Trustee Declaration": {
+          "files": [],
+          "notes": "No ATO trustee declaration provided.",
+          "status": "Missing"
+        },
+        "Change of Trustee": {
+          "files": [],
+          "notes": "No change of trustee documentation provided.",
+          "status": "Missing"
+        },
+        "Death Benefit Nominations": {
+          "files": [],
+          "notes": "No death benefit nominations provided.",
+          "status": "Missing"
+        },
+        "Enduring Power of Attorney": {
+          "files": [],
+          "notes": "No enduring power of attorney provided.",
+          "status": "Missing"
+        },
+        "Investment Strategy": {
+          "files": [],
+          "notes": "No investment strategy document provided.",
+          "status": "Missing"
+        },
+        "Trust Deed": {
+          "files": [],
+          "notes": "No trust deed or governing documents provided in the working papers.",
+          "status": "Missing"
+        }
+      },
+      "Prior Year Documents": {
+        "Prior Year Audit Reports / Financials": {
+          "files": [],
+          "notes": "No prior year audit reports or financial statements provided.",
+          "status": "Missing"
+        }
+      },
+      "Term Deposit": {
+        "Term Deposit Certificates/Statements": {
+          "files": [],
+          "notes": "No term deposits held.",
+          "status": "N/A"
+        }
+      }
+    },
+    "member_reconciliation": {
+      "audit_finding": "Significant reduction in TSB from $2,159,140.32 at 30/06/2024 to $8,680.99 at 30/06/2025. This is consistent with a full roll-over or transfer out of the SMSF balance to the AMP Super Fund during FY25. Remaining SMSF balance appears to be residual cash/holdings after wind-down activities. No pension phase reported.",
+      "name": "Andrea Martignoni",
+      "reconciliation_status": "Reconciled - TSB movement aligns with large cash transfers and portfolio sales observed in bank and broker statements.",
+      "tfn": "139 809 744",
+      "tsb_2024": 2159140.32,
+      "tsb_2024_composition": {
+        "AMP_Accumulation": 8418.47,
+        "SMSF_Accumulation": 2150721.85
+      },
+      "tsb_2025": 8680.99,
+      "tsb_2025_composition": {
+        "AMP_Accumulation": 8680.99
+      }
+    },
+    "portfolio_reconciliation": {
+      "distribution_check": {
+        "mxt_periodic_statement_distribution": 2207.8,
+        "mxt_tax_statement_distribution": 2207.8,
+        "notes": "Distributions per tax statement and periodic statement match; minor difference to tax return share of income attributable to other assessable components.",
+        "other_assessable_income": 480.77,
+        "reconciliation": "Pass",
+        "tax_return_share_of_income_13u": 2216.51
+      },
+      "mxt_reconciliation": {
+        "broker_market_value": 28280.0,
+        "broker_price": 2.02,
+        "broker_units": 14000,
+        "description": "Metrics Master Income Trust (MXT) holding reconciliation at 30/06/2025",
+        "explanation": "Variance due to broker using closing market price ($2.02) versus registry Net Asset Value ($2.00).",
+        "registry_market_value": 28000.0,
+        "registry_price": 2.0,
+        "registry_units": 14000,
+        "variance_units": 0,
+        "variance_value": 280.0
+      },
+      "totals": {
+        "closing_30jun25": {
+          "estimated_annual_income": 98849.35,
+          "total_cost": 1876433.97,
+          "total_market_value": 2345269.88
+        },
+        "opening_1jul24": {
+          "estimated_annual_income": 96528.93,
+          "total_cost": 1859252.7,
+          "total_market_value": 2121365.96
+        }
+      }
+    },
+    "tax_reconciliation": {
+      "accounts": [
+        {
+          "balance_30jun25": 0.0,
+          "name": "ATO Integrated Client Account (ICA)",
+          "notes": "ATO activity statement shows $0.00 balance as at 06/04/2026.",
+          "status": "Reconciled"
+        },
+        {
+          "balance_30jun25": 0.0,
+          "name": "ATO Income Tax Account (ITA)",
+          "notes": "Income tax account reflects FY24 refund received and zero outstanding.",
+          "status": "Reconciled"
+        }
+      ],
+      "outstanding_returns": {
+        "FY25": "Lodged",
+        "details": "Tax return for year ended 30 June 2024 lodged with refund received; FY25 return appears lodged per ATO activity to Apr 2026 with zero balance."
+      }
+    }
+  },
+  "reviewer_notes": "Reviewed cash lead schedule and MXT price variance. All variances are explained. Compliant under SIS regulations. Sign-off approved.",
+  "status": "completed",
+  "unprocessed_files": []
+}
