@@ -64,6 +64,12 @@ export function formatRelative(s: string | null | undefined): string {
   return `${mo}mo ago`
 }
 
+/** Format a numeric AUD amount; em-dash when null/undefined. */
+export function formatAud(n: number | null | undefined): string {
+  if (n == null) return '—'
+  return n.toLocaleString('en-AU', { style: 'currency', currency: 'AUD' })
+}
+
 /** Compact token count: 248000 → "248k tok". */
 export function formatTokens(n: number | null | undefined): string {
   if (n == null) return ''

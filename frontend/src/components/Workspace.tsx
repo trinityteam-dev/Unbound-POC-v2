@@ -1,33 +1,10 @@
 import { useState } from 'react'
-import { Box, Center, Paper, Skeleton, Stack, Text } from '@mantine/core'
+import { Box, Center, Skeleton, Stack, Text } from '@mantine/core'
 import type { JobDetail } from '../api/types'
 import { tokens } from '../theme'
 import { Step1 } from './step1/Step1'
-import {
-  DEFAULT_STEP2_TAB,
-  WorkspaceHeader,
-  type Step2Tab,
-} from './WorkspaceHeader'
-
-// Step 2 cards are still placeholders until Phase 5.
-const STEP2_CARDS: Record<Step2Tab, string[]> = {
-  'Reconciliation & Queries': [
-    'Metric strip',
-    'Bank Transaction Reconciliation',
-    'Client Queries',
-    'Reviewer Final sign-off',
-  ],
-  'Lead Schedules': [
-    'Cash Lead Schedule',
-    'Cash Verification Checks',
-    'Securities Portfolio Valuation',
-    'MXT Registry Check',
-    'ATO Tax Reconciliation Ledger',
-    'Member TSB',
-  ],
-  Compliance: ['Document Audit Checklist Verification', 'Notes board'],
-  'Agent Logs': ['Agent Execution Logs'],
-}
+import { Step2 } from './step2/Step2'
+import { DEFAULT_STEP2_TAB, WorkspaceHeader, type Step2Tab } from './WorkspaceHeader'
 
 export interface WorkspaceProps {
   job: JobDetail | undefined
@@ -72,34 +49,7 @@ export function Workspace({ job, isLoading, activeStep }: WorkspaceProps) {
       />
 
       <Box style={{ flex: 1, overflowY: 'auto', background: tokens.canvas }} p="xl">
-        {activeStep === 1 ? (
-          <Step1 job={job} />
-        ) : (
-          <Stack gap="lg">
-            <Text size="sm" c={tokens.textTertiary}>
-              Phase 2 shell — Step 2 content lands in Phase 5. Cards to render here ({subTab}):
-            </Text>
-            {STEP2_CARDS[subTab].map((card) => (
-              <Paper
-                key={card}
-                radius="lg"
-                p={28}
-                style={{
-                  background: tokens.surface,
-                  border: `1px solid ${tokens.hairline}`,
-                  boxShadow: tokens.shadowCard,
-                }}
-              >
-                <Text fz={15.5} fw={600} c={tokens.textPrimary}>
-                  {card}
-                </Text>
-                <Text size="sm" c={tokens.textTertiary} mt={6}>
-                  Placeholder
-                </Text>
-              </Paper>
-            ))}
-          </Stack>
-        )}
+        {activeStep === 1 ? <Step1 job={job} /> : <Step2 job={job} subTab={subTab} />}
       </Box>
     </Box>
   )

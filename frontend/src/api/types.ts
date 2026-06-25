@@ -51,19 +51,27 @@ export interface ReconSummary {
   unmatched: number
 }
 
-// Query transactions are a union (TxnEnriched | TxnSimple). Kept loose for
-// the POC — refine in Phase 5 against real query data.
-export interface TxnSimple {
-  date?: string
-  description?: string
-  amount?: string
-  [k: string]: unknown
+// A bank/reconciliation transaction (Phase 5). credit/debit are floats or null;
+// `status` is "matched" | "unmatched".
+export interface ReconTxn {
+  date: string
+  description: string
+  credit: number | null
+  debit: number | null
+  status: string
+  type?: string
+  matched_document?: string | null
+  unmatched_reason?: string | null
+  account_name?: string
+  account_number?: string
+  smsf_category?: string
 }
-export type TxnEnriched = TxnSimple & {
-  matched?: boolean
-  [k: string]: unknown
+
+export interface ReconAccount {
+  account_name: string
+  account_number: string
+  transactions: ReconTxn[]
 }
-export type QueryTxn = TxnSimple | TxnEnriched
 
 export type QueryStatus = 'pending' | 'sent' | 'dismissed' | string
 
@@ -72,12 +80,18 @@ export interface ClientQuery {
   category: string
   query_text: string
   status: QueryStatus
-  transactions: QueryTxn[]
-  sub_queries?: ClientQuery[]
+  transactions: ReconTxn[]
+  sub_queries?: ClientQuery[] | null
 }
 
 // reconciliation_results is a DICT keyed by account number (Phase 0), not a list.
-export type ReconciliationResults = Record<string, unknown>
+export type ReconciliationResults = Record<string, ReconAccount>
+
+export interface AuditorNote {
+  title: string
+  description: string
+  type: 'error' | 'warning' | string
+}
 
 export interface Phase2Context {
   summary?: ReconSummary

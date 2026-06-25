@@ -37,6 +37,15 @@ body {
   animation: wfPulse 1.8s infinite;
 }
 
+@keyframes wfSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.wf-spin {
+  animation: wfSpin 1s linear infinite;
+}
+
 /* Hover affordances (inline styles can't do :hover) */
 .app-tab:hover {
   background: rgba(0, 0, 0, 0.035);

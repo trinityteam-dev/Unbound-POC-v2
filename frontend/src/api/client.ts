@@ -62,7 +62,7 @@ export const api = {
   processorReview: (jobId: string, payload: ProcessorReviewPayload) =>
     post<ReviewAck>(`/api/jobs/${jobId}/processor-review`, payload),
   reviewerReview: (jobId: string, payload: ReviewerReviewPayload) =>
-    post<JobDetail>(`/api/jobs/${jobId}/reviewer-review`, payload),
+    post<ReviewAck>(`/api/jobs/${jobId}/reviewer-review`, payload),
 
   // Phase 2
   getReconciliation: (jobId: string) =>

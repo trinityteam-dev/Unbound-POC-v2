@@ -33,4 +33,12 @@ export const handlers = [
       message: 'Job created.',
     })
   }),
+  http.post('/api/jobs/:id/queries/:queryId/status', async ({ params, request }) => {
+    const body = (await request.json()) as { status?: string }
+    return HttpResponse.json({
+      status: 'success',
+      query_id: params.queryId,
+      new_status: body?.status,
+    })
+  }),
 ]

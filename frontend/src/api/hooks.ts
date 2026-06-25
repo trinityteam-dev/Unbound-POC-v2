@@ -4,6 +4,8 @@ import type {
   CreateJobPayload,
   JobStatus,
   ProcessorReviewPayload,
+  QueryStatusPayload,
+  ReviewerReviewPayload,
   SavePlaybookPayload,
 } from './types'
 
@@ -73,5 +75,37 @@ export function useSavePlaybook() {
   return useMutation({
     mutationFn: (payload: SavePlaybookPayload) => api.savePlaybook(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['funds'] }),
+  })
+}
+
+/** Reviewer final sign-off → completes the job. */
+export function useReviewerReview(jobId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: ReviewerReviewPayload) =>
+      api.reviewerReview(jobId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['job', jobId] })
+      qc.invalidateQueries({ queryKey: ['jobs'] })
+    },
+  })
+}
+
+/** Send/dismiss a client query. */
+export function useSetQueryStatus(jobId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ queryId, payload }: { queryId: string; payload: QueryStatusPayload }) =>
+      api.setQueryStatus(jobId, queryId, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['job', jobId] }),
+  })
+}
+
+/** Re-cluster client queries. */
+export function useRegroupQueries(jobId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.regroupQueries(jobId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['job', jobId] }),
   })
 }

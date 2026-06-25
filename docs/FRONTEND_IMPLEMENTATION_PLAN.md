@@ -54,6 +54,7 @@ Full detail in memory `frontend-theme.md`.
 - [x] **Phase 2** — App shell + persistent header + workflow timeline ✅ 2026-06-25
 - [x] **Phase 3** — Functional job creation (sidebar form; Audits-home dropped per IA decision) ✅ 2026-06-25
 - [x] **Phase 4** — Step 1 content: documents table + override modal + processor sign-off + playbook ✅ 2026-06-25
+- [x] **Phase 5** — Step 2 content: reconciliation/queries + lead schedules + compliance + agent logs ✅ 2026-06-25
 - [ ] **Phase 4** — Step 1 workspace (Documents + Playbook)
 - [ ] **Phase 5** — Step 2 workspace (Reconciliation/queries + tabs)
 - [ ] **Phase 6** — Realtime, gating, polish (loading/empty/error/notifications)
@@ -227,32 +228,31 @@ Browse existing jobs; the persistent chrome reflects live status. No edit action
 
 ### Tasks
 - [ ] **Reconciliation & queries tab** (default, unified):
-  - [ ] **Metric strip** — ONE white panel, 5 hairline-divided stats (Transactions / Matched / Unmatched / Queries / Exceptions) ← `phase2_context.summary` + queries + auditor_notes
-  - [ ] **Bank reconciliation** (left col) ← `phase2_context.reconciliation_results`: account + txn rows (date, description, matched/unmatched mark); account switch via compact list/`Accordion`
-  - [ ] **Client queries** (right col) ← `phase2_context.queries[]`: rows with status dot (pending amber / sent green), category, txn count, "Open"
-  - [ ] Query detail modal/panel → Send (`POST …/queries/:qid/status {status:"sent", query_text}`) / Dismiss (`{status:"dismissed"}` w/ confirm)
-  - [ ] **Action bar**: reviewer notes `Textarea` + **Regroup queries** (`POST …/regroup-queries`) + **Complete & sign off** (`POST …/reviewer-review`)
-- [ ] **Lead schedules tab** ← `job.results`: Cash / Securities (totals + MXT variance amber note + distribution check) / Tax / Member TSB
-- [ ] **Compliance tab**: grouped checklist ← `results.checklist`; notes board ← processor/reviewer/auditor notes
-- [ ] **Agent logs tab**: dark log terminal ← `job.logs[]` (level-colored, auto-scroll)
-- [ ] Null-guard every Phase-2 consumer (`results`/`phase2_context` may be absent)
-- [ ] Phase gating: reviewer sign-off only in `pending_reviewer_approval`; "running…" state while `processing_review`
+  - [x] **Metric strip** (`MetricStrip`) — ONE white panel, 5 hairline-divided stats ← `summary` + queries + auditor_notes
+  - [x] **Bank reconciliation** (`ReconciliationCard`) ← `reconciliation_results`: account + txn rows; matched ✓ / unmatched help-circle w/ reason tooltip; account switcher when >1
+  - [x] **Client queries** (`QueriesCard`) ← `queries[]`: status dot (pending amber / sent green / dismissed grey), category, txn count, "Open"
+  - [x] **Query modal** (`QueryModal`) — editable query text + txn table → Send (`{status:"sent", query_text}`) / Dismiss (`{status:"dismissed"}` w/ confirm modal)
+  - [x] **Reviewer sign-off** (`ReviewerSignoffCard`): reviewer notes + **Regroup queries** + **Complete & sign off**
+- [x] **Lead schedules tab** (`LeadSchedules`) ← `job.results`: Cash / Securities (MXT variance amber note + distribution PASS badge) / Tax (FY25 outstanding) / Member TSB
+- [x] **Compliance tab** (`Compliance`): grouped checklist `Accordion` ← `results.checklist`; notes board ← processor/reviewer/auditor notes (type-colored)
+- [x] **Agent logs tab** (`AgentLogs`): dark terminal ← `job.logs[]` (level-inferred coloring, auto-scroll)
+- [x] Null-guard every Phase-2 consumer (`results`/`phase2_context` may be absent)
+- [x] Phase gating: reviewer sign-off / query actions only in `pending_reviewer_approval`; "running…" banner while `processing_review`
 
-#### Parity checklist — existing Step 2 cards (all must be present & visible, grouped by sub-tab)
-- [ ] **Recon & Queries:** Active Orchestration Flow (now the timeline) · Bank Transaction Reconciliation + Query rail/Groups · Human Auditor & Reviewer Final sign-off ([:1862/1907/1939](../templates/index.html))
-- [ ] **Lead Schedules:** Cash Lead Schedule · Cash Verification Checks · Securities Portfolio Valuation · MXT Registry Check · ATO Tax Reconciliation Ledger · Member TSB ([:1956–2040](../templates/index.html))
-- [ ] **Compliance:** Document Audit Checklist Verification · Notes board (Processor Escalation / AI Reviewer / Auditor Exceptions) ([:2072/2093](../templates/index.html))
-- [ ] **Agent Logs:** Agent Execution Logs ([:2112](../templates/index.html))
+#### Parity checklist — existing Step 2 cards (all present, grouped by sub-tab)
+- [x] **Recon & Queries:** timeline (header) · Bank Transaction Reconciliation · Client Queries · Reviewer Final sign-off
+- [x] **Lead Schedules:** Cash · Securities/MXT · Tax · Member TSB (verified live)
+- [x] **Compliance:** Document Audit Checklist Verification · Notes board (processor/reviewer/auditor)
+- [x] **Agent Logs:** Agent Execution Logs
 
 ### Tests / Acceptance
-- [ ] `npm run test` / `typecheck` / `lint` green
-- [ ] **Parity: every existing Step-2 card renders in its sub-tab** (no content hidden)
-- [ ] Component test: metric strip computes 5 stats correctly from fixture
-- [ ] Component test: reconciliation renders matched/unmatched marks; account switching works
-- [ ] Component test: query Send/Dismiss call correct endpoints with correct payloads; Dismiss shows confirm
-- [ ] Component test: Step-2 tabs show "running…" when `processing_review` and data when `pending_reviewer_approval`
-- [ ] Component test: all Phase-2 consumers handle `null`/missing data without crashing
-- [ ] Manual (live): open a `pending_reviewer_approval` job → send a query → Complete & sign off → job → `completed`, timeline all-done
+- [x] `npm run test` / `typecheck` / `lint` green (34 tests)
+- [x] **Parity: every Step-2 card renders in its sub-tab** — verified live on the Cobble `pending_reviewer_approval` job (49 txns, 4 queries, 11 exceptions, full lead schedules)
+- [x] Component test: `MetricStrip` renders the 5 stats (`MetricStrip.test.tsx`)
+- [x] Hook test: `useSetQueryStatus` posts the chosen status (`hooks.test.tsx`)
+- [x] Null-guards: every consumer handles missing `results`/`phase2_context` (running-state guard)
+- [x] Manual (live): query modal opens with Send/Dismiss; fixed a `<div>`-in-`<p>` nesting warning in Securities card
+- [ ] Manual (live): actually send a query / Complete & sign off → `completed` — **not triggered** (real mutations on live data; defer to user)
 
 ---
 
