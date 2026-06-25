@@ -27,11 +27,14 @@ const approved: JobFile = {
 const r = (ui: React.ReactNode) => render(<MantineProvider>{ui}</MantineProvider>)
 
 describe('DocumentsCard', () => {
-  it('renders a pending row with Override + amount when editable', () => {
+  it('renders a pending row with Override, original file, and extracted data', () => {
     r(<DocumentsCard jobId="j1" files={[pending]} editable onOverride={vi.fn()} />)
     expect(screen.getByText('Pending')).toBeInTheDocument()
     expect(screen.getByText('Override')).toBeInTheDocument()
-    expect(screen.getByText('$270.41')).toBeInTheDocument()
+    // Original File column
+    expect(screen.getByText('a.pdf')).toBeInTheDocument()
+    // Extracted Data consolidates amount + date
+    expect(screen.getByText(/\$270\.41 · 30 Jun 2025/)).toBeInTheDocument()
   })
 
   it('renders an approved row with no Override when read-only', () => {

@@ -22,6 +22,7 @@ export function Card({
   subtitle,
   action,
   accent = 'neutral',
+  divider = false,
   children,
 }: {
   title: string
@@ -29,6 +30,7 @@ export function Card({
   subtitle?: string
   action?: ReactNode
   accent?: CardAccent
+  divider?: boolean
   children: ReactNode
 }) {
   return (
@@ -47,7 +49,7 @@ export function Card({
           justifyContent: 'space-between',
           alignItems: 'center',
           gap: 12,
-          marginBottom: subtitle ? 4 : 16,
+          marginBottom: subtitle ? 4 : divider ? 14 : 16,
         }}
       >
         <Text fz={15.5} fw={600} c={titleColor ?? tokens.textPrimary}>
@@ -59,6 +61,11 @@ export function Card({
         <Text fz={12.5} c={tokens.textTertiary} mb="md">
           {subtitle}
         </Text>
+      )}
+      {divider && (
+        <Box
+          style={{ borderBottom: `1px solid ${tokens.hairline}`, margin: '0 -24px 16px' }}
+        />
       )}
       {children}
     </Paper>

@@ -1,4 +1,4 @@
-import { Anchor, Button, Table, Text } from '@mantine/core'
+import { Anchor, Badge, Button, Table, Text } from '@mantine/core'
 import { api } from '../../api/client'
 import { formatMoney, formatShortDate } from '../../api/format'
 import { isApprovedFile, type JobFile } from '../../api/types'
@@ -14,17 +14,35 @@ export interface DocumentsCardProps {
   onOverride: (index: number) => void
 }
 
+// Consolidate the extracted metadata (account / amount / date) into one cell.
+function extractedData(f: JobFile): string {
+  const parts: string[] = []
+  if (f.account_number) parts.push(`Acct ${f.account_number}`)
+  const amount = formatMoney(f.amount)
+  if (amount !== '—') parts.push(amount)
+  const date = formatShortDate(f.date)
+  if (date !== '—') parts.push(date)
+  return parts.length ? parts.join(' · ') : '—'
+}
+
 export function DocumentsCard({ jobId, files, editable, onOverride }: DocumentsCardProps) {
   const approved = files.filter(isApprovedFile).length
+  const allApproved = files.length > 0 && approved === files.length
 
   return (
     <Card
       title="Classified Audit Workpapers"
       accent="teal"
+      divider
       action={
-        <Text fz={12.5} c={tokens.textTertiary}>
+        <Badge
+          color={allApproved ? 'teal' : 'gray'}
+          variant="light"
+          radius="sm"
+          size="md"
+        >
           {approved} of {files.length} approved
-        </Text>
+        </Badge>
       }
     >
       {files.length === 0 ? (
@@ -32,7 +50,7 @@ export function DocumentsCard({ jobId, files, editable, onOverride }: DocumentsC
           No documents classified.
         </Text>
       ) : (
-        <Table.ScrollContainer minWidth={560}>
+        <Table.ScrollContainer minWidth={620}>
           <Table
             verticalSpacing="sm"
             horizontalSpacing="sm"
@@ -41,14 +59,12 @@ export function DocumentsCard({ jobId, files, editable, onOverride }: DocumentsC
           >
             <Table.Thead>
               <Table.Tr>
-                <Table.Th style={{ width: editable ? '30%' : '34%' }}>Document</Table.Th>
-                <Table.Th style={{ width: '18%' }}>Category</Table.Th>
-                <Table.Th ta="right" style={{ width: '12%' }}>
-                  Amount
-                </Table.Th>
-                <Table.Th style={{ width: '10%' }}>Date</Table.Th>
-                <Table.Th style={{ width: '13%' }}>Status</Table.Th>
-                {editable && <Table.Th style={{ width: '17%' }} />}
+                <Table.Th style={{ width: editable ? '22%' : '25%' }}>Document</Table.Th>
+                <Table.Th style={{ width: '20%' }}>Original File</Table.Th>
+                <Table.Th style={{ width: '16%' }}>Category</Table.Th>
+                <Table.Th style={{ width: '20%' }}>Extracted Data</Table.Th>
+                <Table.Th style={{ width: '10%' }}>Status</Table.Th>
+                {editable && <Table.Th style={{ width: '12%' }} />}
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -73,19 +89,19 @@ export function DocumentsCard({ jobId, files, editable, onOverride }: DocumentsC
                       ) : (
                         <Text fz={13.5}>{f.classified_name}</Text>
                       )}
-                      <Text fz={11.5} c={tokens.textTertiary}>
+                    </Table.Td>
+                    <Table.Td style={{ wordBreak: 'break-word' }}>
+                      <Text fz={12.5} c={tokens.textSecondary}>
                         {f.original_name}
-                        {f.account_number ? ` · Acct ${f.account_number}` : ''}
                       </Text>
                     </Table.Td>
                     <Table.Td>
                       <Text fz={13}>{f.category}</Text>
                     </Table.Td>
-                    <Table.Td ta="right" className="tabular-nums">
-                      <Text fz={13}>{formatMoney(f.amount)}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text fz={13}>{formatShortDate(f.date)}</Text>
+                    <Table.Td style={{ wordBreak: 'break-word' }}>
+                      <Text fz={12.5} c={tokens.textSecondary} className="tabular-nums">
+                        {extractedData(f)}
+                      </Text>
                     </Table.Td>
                     <Table.Td>
                       <Text fz={13} fw={500} c={isApprovedRow ? tokens.success : tokens.warn}>
