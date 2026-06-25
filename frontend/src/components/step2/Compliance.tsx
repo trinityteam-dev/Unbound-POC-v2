@@ -8,7 +8,7 @@ type Any = Record<string, unknown>
 function ChecklistCard({ checklist }: { checklist: Any | undefined }) {
   const groups = checklist ? Object.entries(checklist) : []
   return (
-    <Card title="Document Audit Checklist Verification">
+    <Card title="Document Audit Checklist Verification" accent="violet">
       {groups.length === 0 ? (
         <Text fz={13} c={tokens.textTertiary}>
           No checklist available.
@@ -48,7 +48,7 @@ function ChecklistCard({ checklist }: { checklist: Any | undefined }) {
 function NotesBoard({ job }: { job: JobDetail }) {
   const auditorNotes = (job.auditor_notes as AuditorNote[] | undefined) ?? []
   return (
-    <Card title="Notes & Exceptions">
+    <Card title="Notes & Exceptions" accent="amber">
       <Stack gap="md">
         {job.processor_notes ? (
           <div>

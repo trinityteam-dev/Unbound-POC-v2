@@ -56,6 +56,7 @@ export function PlaybookCard({ job, funds }: PlaybookCardProps) {
   return (
     <Card
       title="Playbook Manager"
+      accent="violet"
       subtitle="Keywords the AI uses during document classification for this playbook."
     >
       {categories.length === 0 ? (

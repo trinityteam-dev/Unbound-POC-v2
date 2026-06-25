@@ -12,7 +12,7 @@ export function ReconciliationCard({ recon }: { recon: ReconciliationResults | u
 
   if (accounts.length === 0) {
     return (
-      <Card title="Bank Transaction Reconciliation">
+      <Card title="Bank Transaction Reconciliation" accent="teal">
         <Text fz={13} c={tokens.textTertiary}>
           No reconciliation data yet.
         </Text>
@@ -25,6 +25,7 @@ export function ReconciliationCard({ recon }: { recon: ReconciliationResults | u
   return (
     <Card
       title="Bank Transaction Reconciliation"
+      accent="teal"
       action={
         accounts.length > 1 ? (
           <Group gap={6}>

@@ -39,7 +39,7 @@ export function ProcessorSignoffCard({ jobId, files, enabled }: ProcessorSignoff
   }
 
   return (
-    <Card title="Human Processor Sign-off Escalation">
+    <Card title="Human Processor Sign-off Escalation" accent="blue">
       <Textarea
         label="Processor notes & escalation comments"
         placeholder="Note any ledger discrepancies, missing client details, or bookkeeping issues…"

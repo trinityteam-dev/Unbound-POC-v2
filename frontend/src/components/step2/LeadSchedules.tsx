@@ -27,7 +27,7 @@ function DefRow({ label, value, color }: { label: string; value: string; color?:
 function CashCard({ cash }: { cash: Any | undefined }) {
   const accounts = (cash?.accounts as Any[]) ?? []
   return (
-    <Card title="Cash Lead Schedule">
+    <Card title="Cash Lead Schedule" accent="teal">
       {accounts.length === 0 ? (
         <Text fz={13} c={tokens.textTertiary}>
           No cash accounts.
@@ -75,7 +75,7 @@ function SecuritiesCard({ portfolio }: { portfolio: Any | undefined }) {
   const distPass = String(dist.reconciliation ?? '').toLowerCase() === 'pass'
 
   return (
-    <Card title="Securities Portfolio Valuation">
+    <Card title="Securities Portfolio Valuation" accent="teal">
       <Text fz={13} fw={500} c={tokens.textSecondary} mb={4}>
         MXT registry check
       </Text>
@@ -108,7 +108,7 @@ function TaxCard({ tax }: { tax: Any | undefined }) {
   const accounts = (tax?.accounts as Any[]) ?? []
   const outstanding = (tax?.outstanding_returns as Any) ?? {}
   return (
-    <Card title="ATO Tax Reconciliation Ledger">
+    <Card title="ATO Tax Reconciliation Ledger" accent="teal">
       <Stack gap={4}>
         {accounts.map((a, i) => (
           <DefRow
@@ -131,7 +131,7 @@ function TaxCard({ tax }: { tax: Any | undefined }) {
 function MemberCard({ member }: { member: Any | undefined }) {
   if (!member) {
     return (
-      <Card title="Member Total Superannuation Balance (TSB)">
+      <Card title="Member Total Superannuation Balance (TSB)" accent="teal">
         <Text fz={13} c={tokens.textTertiary}>
           No member data.
         </Text>
@@ -139,7 +139,7 @@ function MemberCard({ member }: { member: Any | undefined }) {
     )
   }
   return (
-    <Card title="Member Total Superannuation Balance (TSB)">
+    <Card title="Member Total Superannuation Balance (TSB)" accent="teal">
       <Text fz={14} fw={500}>
         {String(member.name ?? '')}
       </Text>

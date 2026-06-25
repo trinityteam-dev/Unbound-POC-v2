@@ -7,7 +7,7 @@ export function UnprocessedCard({ files }: { files: UnprocessedFile[] | undefine
   if (!files || files.length === 0) return null
 
   return (
-    <Card title={`File Exceptions (${files.length})`} titleColor="#C2410C">
+    <Card title={`File Exceptions (${files.length})`} titleColor={tokens.warn} accent="amber">
       <Table verticalSpacing="sm" horizontalSpacing="md">
         <Table.Thead>
           <Table.Tr>

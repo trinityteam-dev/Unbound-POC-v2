@@ -29,7 +29,7 @@ export function MetricStrip({ total, matched, unmatched, queries, exceptions }: 
       radius="lg"
       style={{
         background: tokens.surface,
-        border: `1px solid ${tokens.hairline}`,
+        border: `1px solid rgba(45,212,191,0.40)`,
         boxShadow: tokens.shadowCard,
         display: 'flex',
       }}

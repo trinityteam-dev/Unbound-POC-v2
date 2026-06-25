@@ -22,6 +22,7 @@ export function QueriesCard({ queries, onOpen }: QueriesCardProps) {
   return (
     <Card
       title="Client Queries"
+      accent="amber"
       action={
         <Text fz={12.5} c={tokens.textTertiary}>
           {queries.length}

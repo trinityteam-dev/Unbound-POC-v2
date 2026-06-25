@@ -50,7 +50,7 @@ export function ReviewerSignoffCard({ jobId, enabled }: ReviewerSignoffCardProps
   }
 
   return (
-    <Card title="Human Auditor & Reviewer Final Sign-off">
+    <Card title="Human Auditor & Reviewer Final Sign-off" accent="blue">
       <Textarea
         label="Reviewer notes"
         placeholder="Final review comments, audit conclusions, outstanding items…"

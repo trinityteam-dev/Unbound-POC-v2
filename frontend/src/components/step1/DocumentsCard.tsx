@@ -20,6 +20,7 @@ export function DocumentsCard({ jobId, files, editable, onOverride }: DocumentsC
   return (
     <Card
       title="Classified Audit Workpapers"
+      accent="teal"
       action={
         <Text fz={12.5} c={tokens.textTertiary}>
           {approved} of {files.length} approved
