@@ -64,6 +64,7 @@ body {
    with a visible, themed scrollbar (the native one reads as invisible black). */
 .sidebar-scroll {
   background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 10px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
