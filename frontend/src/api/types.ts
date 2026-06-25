@@ -157,6 +157,13 @@ export interface CreateJobPayload {
   job_type: string
 }
 
+// POST /api/jobs/create returns a thin ack (NOT a full job record).
+export interface CreateJobResponse {
+  status: string
+  job_id: string
+  message: string
+}
+
 export interface ProcessorReviewPayload {
   files: JobFile[]
   processor_notes: string

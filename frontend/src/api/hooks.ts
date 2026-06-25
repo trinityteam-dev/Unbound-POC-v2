@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { JobStatus } from './types'
+import type { CreateJobPayload, JobStatus } from './types'
 
 // Statuses where an AI stage is running → poll fast (spec §7).
 const ACTIVE_STATUSES: JobStatus[] = ['processing_docs', 'processing_review']
@@ -35,5 +35,16 @@ export function useFunds() {
   return useQuery({
     queryKey: ['funds'],
     queryFn: api.getFunds,
+  })
+}
+
+/** Create a job (starts Phase 1). Invalidates the jobs list on success. */
+export function useCreateJob() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: CreateJobPayload) => api.createJob(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['jobs'] })
+    },
   })
 }

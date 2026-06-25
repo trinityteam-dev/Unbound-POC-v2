@@ -52,7 +52,7 @@ Full detail in memory `frontend-theme.md`.
 - [x] **Phase 0** — Pre-flight & environment check ✅ 2026-06-24
 - [x] **Phase 1** — Scaffold (Vite + Mantine + theme + typed API layer) ✅ 2026-06-25
 - [x] **Phase 2** — App shell + persistent header + workflow timeline ✅ 2026-06-25
-- [ ] **Phase 3** — Audits home + New-audit modal
+- [x] **Phase 3** — Functional job creation (sidebar form; Audits-home dropped per IA decision) ✅ 2026-06-25
 - [ ] **Phase 4** — Step 1 workspace (Documents + Playbook)
 - [ ] **Phase 5** — Step 2 workspace (Reconciliation/queries + tabs)
 - [ ] **Phase 6** — Realtime, gating, polish (loading/empty/error/notifications)
@@ -171,21 +171,24 @@ Browse existing jobs; the persistent chrome reflects live status. No edit action
 
 ---
 
-## Phase 3 — Audits home + New-audit modal (§10 step 3)
+## Phase 3 — Functional job creation (§10 step 3)
+
+> **IA-faithful revision:** per the locked "mirror existing IA" decision, the original app has **no separate Audits-home page** — it creates jobs from the sidebar "Configure Audit Job" form. So Phase 3 = make that form functional, NOT build a new landing page (which would re-introduce the dropped workflow reframing). The spec's Audits-home (§6.3) is intentionally **not built**.
 
 ### Tasks
-- [ ] Audits home view (§6.3): header ("Audits" + "New audit"), muted summary line
-- [ ] "Awaiting your review" section (amber dot, fund, step description, role pill, time, chevron)
-- [ ] "Recent" section (muted, cost + completed pill); hairline dividers, no boxes
-- [ ] **New-audit modal**: fund picker (`GET /api/funds`) + playbook/job-type picker → `POST /api/jobs/create {fund_id, job_type}`
-- [ ] On create success → navigate to job workspace; job appears in sidebar; polling begins
-- [ ] (Optional) fund discovery/bootstrap surfaced via `/api/funds/discover` + `/api/funds/bootstrap`
+- [x] Sidebar "Configure Audit Job" form made functional: controlled fund `Select` (`GET /api/funds`) + playbook `Select` + **Run audit pipeline** button → `POST /api/jobs/create {fund_id, job_type}`
+- [x] `useCreateJob` mutation hook; invalidates jobs list on success
+- [x] Submit disabled until a fund is chosen; button shows loading while pending
+- [x] On success → select the new `job_id` (workspace opens) + success toast; polling begins via `useJobDetails` (new job is `processing_docs`). Errors → red toast.
+- [x] Fixed `createJob` return type — endpoint returns thin `{status, job_id, message}`, not a full job
+- [ ] ~~Audits home view / awaiting+recent sections~~ — **dropped** (not in existing IA)
+- [ ] (Deferred) fund discovery/bootstrap via `/api/funds/discover` + `/api/funds/bootstrap`
 
 ### Tests / Acceptance
-- [ ] `npm run test` / `typecheck` / `lint` green
-- [ ] Component test: awaiting vs recent partitioning logic correct given mixed-status job list
-- [ ] Component test: New-audit modal disables submit until fund + job_type chosen
-- [ ] Manual: create a new audit against live Flask → job starts, lands in `processing_docs`, workspace opens, timeline animates
+- [x] `npm run test` / `typecheck` / `lint` green (27 tests)
+- [x] Hook test: `useCreateJob` posts payload, returns new `job_id` (MSW)
+- [x] Manual (live): button disabled with no fund → enabled after selecting a fund (verified in browser)
+- [x] Manual (live): created a Cobble job → landed in `processing_docs` (Classify active, live 10%), workspace auto-opened, then polling advanced it to `pending_processor_review` (timeline → "Your sign-off", pill → Pending processor, sidebar dot violet→amber). Empty folder = zero LLM cost.
 
 ---
 

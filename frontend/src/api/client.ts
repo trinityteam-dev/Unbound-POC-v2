@@ -1,6 +1,7 @@
 // Typed fetch wrappers for the Flask engine (Appendix A — contract unchanged).
 import type {
   CreateJobPayload,
+  CreateJobResponse,
   Fund,
   Job,
   JobDetail,
@@ -56,7 +57,7 @@ export const api = {
   // Jobs
   getJobs: () => request<Job[]>('/api/jobs'),
   createJob: (payload: CreateJobPayload) =>
-    post<JobDetail>('/api/jobs/create', payload),
+    post<CreateJobResponse>('/api/jobs/create', payload),
   getJobDetails: (jobId: string) =>
     request<JobDetail>(`/api/jobs/${jobId}/details`),
   processorReview: (jobId: string, payload: ProcessorReviewPayload) =>

@@ -1,14 +1,20 @@
-import { Box, Group, Loader, Select, Stack, Text, UnstyledButton } from '@mantine/core'
-import { IconChevronRight, IconRefresh, IconTriangleFilled } from '@tabler/icons-react'
+import { useState } from 'react'
+import { Box, Button, Group, Loader, Select, Stack, Text, UnstyledButton } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import {
+  IconChevronRight,
+  IconPlayerPlay,
+  IconRefresh,
+  IconTriangleFilled,
+} from '@tabler/icons-react'
 import type { Job } from '../api/types'
 import { formatRelative } from '../api/format'
 import { statusDotColor, statusMeta } from '../lib/status'
-import { useFunds, useJobs } from '../api/hooks'
+import { useCreateJob, useFunds, useJobs } from '../api/hooks'
 import { tokens } from '../theme'
 
 // Dark sidebar — mirrors the existing IA (templates/index.html:1637):
 // brand, "Configure Audit Job" form, "Job Executions" list, engine footer.
-// Restyled per spec §3/§5. The config form is a stub here (wired in Phase 3).
 export interface SidebarProps {
   selectedJobId: string | null
   onSelectJob: (jobId: string) => void
@@ -84,11 +90,40 @@ function JobRow({
 export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
   const jobs = useJobs()
   const funds = useFunds()
+  const createJob = useCreateJob()
+
+  const [fundId, setFundId] = useState<string | null>(null)
+  const [jobType, setJobType] = useState<string | null>('Accounting_Audit')
 
   const fundOptions =
     funds.data
       ?.filter((f) => !!f.id)
       .map((f) => ({ value: f.id, label: f.name ?? f.id })) ?? []
+
+  function handleRunAudit() {
+    if (!fundId || createJob.isPending) return
+    createJob.mutate(
+      { fund_id: fundId, job_type: jobType ?? 'Accounting_Audit' },
+      {
+        onSuccess: (res) => {
+          notifications.show({
+            color: 'teal',
+            title: 'Audit started',
+            message: 'The AI processor is classifying documents.',
+          })
+          setFundId(null)
+          onSelectJob(res.job_id)
+        },
+        onError: (err) => {
+          notifications.show({
+            color: 'red',
+            title: 'Could not start audit',
+            message: err instanceof Error ? err.message : 'Unknown error',
+          })
+        },
+      },
+    )
+  }
 
   return (
     <Stack
@@ -110,7 +145,7 @@ export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
         </div>
       </Box>
 
-      {/* Configure Audit Job (stub — wired in Phase 3) */}
+      {/* Configure Audit Job */}
       <Text style={SECTION_TITLE} mb="xs">
         Configure Audit Job
       </Text>
@@ -119,31 +154,34 @@ export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
           size="sm"
           placeholder="Select fund"
           data={fundOptions}
+          value={fundId}
+          onChange={setFundId}
           searchable
           nothingFoundMessage="No funds"
+          disabled={funds.isLoading}
         />
         <Select
           size="sm"
           placeholder="Active playbook"
-          defaultValue="Accounting_Audit"
+          value={jobType}
+          onChange={setJobType}
+          allowDeselect={false}
           data={[
             { value: 'Accounting_Audit', label: 'Accounting & Audit (Full)' },
             { value: 'Accounting', label: 'Accounting (Limited Ledger)' },
           ]}
         />
-        <UnstyledButton
-          style={{
-            textAlign: 'center',
-            padding: '11px 14px',
-            borderRadius: 8,
-            border: `1px solid ${tokens.primaryGreen}`,
-            color: tokens.primaryGreen,
-            fontSize: 13,
-            fontWeight: 600,
-          }}
+        <Button
+          fullWidth
+          size="sm"
+          color="brand"
+          leftSection={<IconPlayerPlay size={16} />}
+          loading={createJob.isPending}
+          disabled={!fundId}
+          onClick={handleRunAudit}
         >
-          + New audit
-        </UnstyledButton>
+          Run audit pipeline
+        </Button>
       </Stack>
 
       {/* Job Executions */}

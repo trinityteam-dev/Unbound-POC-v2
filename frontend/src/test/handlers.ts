@@ -22,4 +22,15 @@ export const handlers = [
       (job && detailByStatus[job.status]) ?? pendingProcessor
     return HttpResponse.json(fixture)
   }),
+  http.post('/api/jobs/create', async ({ request }) => {
+    const body = (await request.json()) as { fund_id?: string }
+    if (!body?.fund_id) {
+      return HttpResponse.json({ error: 'fund_id required' }, { status: 400 })
+    }
+    return HttpResponse.json({
+      status: 'started',
+      job_id: 'job_test_new',
+      message: 'Job created.',
+    })
+  }),
 ]
