@@ -147,7 +147,9 @@ export interface Fund {
   folder_path?: string
   members?: unknown
   bank_accounts?: unknown
-  keywords?: Record<string, Record<string, string[]>>
+  // keywords[job_type][category] is a comma-separated STRING (engine format);
+  // tolerate string[] too for safety.
+  keywords?: Record<string, Record<string, string | string[]>>
   [k: string]: unknown
 }
 
@@ -164,9 +166,31 @@ export interface CreateJobResponse {
   message: string
 }
 
+// The (possibly-edited) file rows sent on processor sign-off.
+export interface ReviewFile {
+  original_name: string
+  classified_name: string
+  category: string
+  account_number: string | null
+  amount: string | null
+  date: string | null
+  notes?: string
+}
+
 export interface ProcessorReviewPayload {
-  files: JobFile[]
+  files: ReviewFile[]
   processor_notes: string
+}
+
+// POST /api/funds with a fund's id + merged keywords (savePlaybook intent).
+export interface SavePlaybookPayload {
+  id: string
+  keywords: Record<string, Record<string, string | string[]>>
+}
+
+export interface ReviewAck {
+  status: string
+  message: string
 }
 
 export interface ReviewerReviewPayload {

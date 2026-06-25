@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { CreateJobPayload, JobStatus } from './types'
+import type {
+  CreateJobPayload,
+  JobStatus,
+  ProcessorReviewPayload,
+  SavePlaybookPayload,
+} from './types'
 
 // Statuses where an AI stage is running → poll fast (spec §7).
 const ACTIVE_STATUSES: JobStatus[] = ['processing_docs', 'processing_review']
@@ -46,5 +51,27 @@ export function useCreateJob() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['jobs'] })
     },
+  })
+}
+
+/** Processor sign-off → starts Phase 2. Refreshes the job + jobs list. */
+export function useProcessorReview(jobId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: ProcessorReviewPayload) =>
+      api.processorReview(jobId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['job', jobId] })
+      qc.invalidateQueries({ queryKey: ['jobs'] })
+    },
+  })
+}
+
+/** Save a fund's playbook keywords (POST /api/funds). */
+export function useSavePlaybook() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: SavePlaybookPayload) => api.savePlaybook(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['funds'] }),
   })
 }

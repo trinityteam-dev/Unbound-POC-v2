@@ -2,20 +2,14 @@ import { useState } from 'react'
 import { Box, Center, Paper, Skeleton, Stack, Text } from '@mantine/core'
 import type { JobDetail } from '../api/types'
 import { tokens } from '../theme'
+import { Step1 } from './step1/Step1'
 import {
   DEFAULT_STEP2_TAB,
   WorkspaceHeader,
   type Step2Tab,
 } from './WorkspaceHeader'
 
-// Step → the cards each tab will hold (built in Phases 4–5). Shown here as a
-// parity placeholder so the shell is meaningful before content lands.
-const STEP1_CARDS = [
-  'Classified Audit Workpapers',
-  'Unprocessed Files',
-  'Human Processor Sign-off Escalation',
-  'Playbook Manager',
-]
+// Step 2 cards are still placeholders until Phase 5.
 const STEP2_CARDS: Record<Step2Tab, string[]> = {
   'Reconciliation & Queries': [
     'Metric strip',
@@ -68,9 +62,6 @@ export function Workspace({ job, isLoading, activeStep }: WorkspaceProps) {
     )
   }
 
-  const cards =
-    activeStep === 1 ? STEP1_CARDS : STEP2_CARDS[subTab]
-
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <WorkspaceHeader
@@ -81,31 +72,34 @@ export function Workspace({ job, isLoading, activeStep }: WorkspaceProps) {
       />
 
       <Box style={{ flex: 1, overflowY: 'auto', background: tokens.canvas }} p="xl">
-        <Stack gap="lg">
-          <Text size="sm" c={tokens.textTertiary}>
-            Phase 2 shell — content cards land in {activeStep === 1 ? 'Phase 4' : 'Phase 5'}.
-            Cards to render here ({activeStep === 1 ? 'Step 1' : subTab}):
-          </Text>
-          {cards.map((card) => (
-            <Paper
-              key={card}
-              radius="lg"
-              p={28}
-              style={{
-                background: tokens.surface,
-                border: `1px solid ${tokens.hairline}`,
-                boxShadow: tokens.shadowCard,
-              }}
-            >
-              <Text fz={15.5} fw={600} c={tokens.textPrimary}>
-                {card}
-              </Text>
-              <Text size="sm" c={tokens.textTertiary} mt={6}>
-                Placeholder
-              </Text>
-            </Paper>
-          ))}
-        </Stack>
+        {activeStep === 1 ? (
+          <Step1 job={job} />
+        ) : (
+          <Stack gap="lg">
+            <Text size="sm" c={tokens.textTertiary}>
+              Phase 2 shell — Step 2 content lands in Phase 5. Cards to render here ({subTab}):
+            </Text>
+            {STEP2_CARDS[subTab].map((card) => (
+              <Paper
+                key={card}
+                radius="lg"
+                p={28}
+                style={{
+                  background: tokens.surface,
+                  border: `1px solid ${tokens.hairline}`,
+                  boxShadow: tokens.shadowCard,
+                }}
+              >
+                <Text fz={15.5} fw={600} c={tokens.textPrimary}>
+                  {card}
+                </Text>
+                <Text size="sm" c={tokens.textTertiary} mt={6}>
+                  Placeholder
+                </Text>
+              </Paper>
+            ))}
+          </Stack>
+        )}
       </Box>
     </Box>
   )

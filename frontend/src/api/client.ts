@@ -7,7 +7,9 @@ import type {
   JobDetail,
   ProcessorReviewPayload,
   QueryStatusPayload,
+  ReviewAck,
   ReviewerReviewPayload,
+  SavePlaybookPayload,
   TokenUsage,
 } from './types'
 
@@ -48,11 +50,8 @@ export const api = {
 
   // POST /api/funds is overloaded — split into two intents (spec §8).
   registerFund: (fund: Partial<Fund>) => post<Fund>('/api/funds', fund),
-  savePlaybook: (payload: {
-    fund_id: string
-    job_type: string
-    keywords: Record<string, string[]>
-  }) => post<Fund>('/api/funds', payload),
+  savePlaybook: (payload: SavePlaybookPayload) =>
+    post<{ status: string }>('/api/funds', payload),
 
   // Jobs
   getJobs: () => request<Job[]>('/api/jobs'),
@@ -61,7 +60,7 @@ export const api = {
   getJobDetails: (jobId: string) =>
     request<JobDetail>(`/api/jobs/${jobId}/details`),
   processorReview: (jobId: string, payload: ProcessorReviewPayload) =>
-    post<JobDetail>(`/api/jobs/${jobId}/processor-review`, payload),
+    post<ReviewAck>(`/api/jobs/${jobId}/processor-review`, payload),
   reviewerReview: (jobId: string, payload: ReviewerReviewPayload) =>
     post<JobDetail>(`/api/jobs/${jobId}/reviewer-review`, payload),
 

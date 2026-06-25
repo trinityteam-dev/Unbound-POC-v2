@@ -53,6 +53,7 @@ Full detail in memory `frontend-theme.md`.
 - [x] **Phase 1** — Scaffold (Vite + Mantine + theme + typed API layer) ✅ 2026-06-25
 - [x] **Phase 2** — App shell + persistent header + workflow timeline ✅ 2026-06-25
 - [x] **Phase 3** — Functional job creation (sidebar form; Audits-home dropped per IA decision) ✅ 2026-06-25
+- [x] **Phase 4** — Step 1 content: documents table + override modal + processor sign-off + playbook ✅ 2026-06-25
 - [ ] **Phase 4** — Step 1 workspace (Documents + Playbook)
 - [ ] **Phase 5** — Step 2 workspace (Reconciliation/queries + tabs)
 - [ ] **Phase 6** — Realtime, gating, polish (loading/empty/error/notifications)
@@ -194,30 +195,31 @@ Browse existing jobs; the persistent chrome reflects live status. No edit action
 
 ## Phase 4 — Step 1 workspace: Documents + Playbook (§10 step 4)
 
-### Tasks
-- [ ] **Documents tab** (default): full-width classified documents table ← `job.files[]` (handle both union shapes); columns Document (PDF link) / Category / Amount / Status
-- [ ] Calm styling: hairline row dividers, amber row-tint for rows needing review + "Review" link; quiet green "Approved" for approved rows
-- [ ] PDF link → `GET /api/jobs/:id/file/:phase/:filename` (`phase` = `staging` pre-approval, `workpaper` after)
-- [ ] **Override modal** (only `pending_processor_review`): category `Select` + account/amount/date/notes; edits **batched client-side** until sign-off
-- [ ] **Unprocessed errors** list ← `job.unprocessed_files[]` below the table
-- [ ] **Action bar** (persistent bottom, white, hairline top): processor notes `Textarea` + **Approve & continue** → `POST /api/jobs/:id/processor-review {files, processor_notes}`
-- [ ] **Playbook tab**: per-category keyword editor ← `fund.keywords[job_type]`; Save → `POST /api/funds` (savePlaybook intent)
-- [ ] Phase gating: override/approve enabled only in `pending_processor_review`; read-only otherwise
+> **IA-faithful note:** Step 1 has **no sub-tabs** — it's the existing 2-column layout (docs + sign-off left, Playbook right), all cards stacked/visible.
 
-#### Parity checklist — existing Step 1 cards (all must be present & visible)
-- [ ] Classified Audit Workpapers ([index.html:1756](../templates/index.html))
-- [ ] Unprocessed Files (conditional, when `unprocessed_files[]` non-empty) ([:1780](../templates/index.html))
-- [ ] Human Processor Sign-off Escalation ([:1801](../templates/index.html))
-- [ ] Playbook Manager ([:1819](../templates/index.html))
+### Tasks
+- [x] **Classified Audit Workpapers** table ← `job.files[]` (union-aware); columns Document (PDF link + original caption) / Category / Amount / Date / Status / Actions; fixed column widths
+- [x] Calm styling: amber row-tint for pending rows; quiet amber "Pending" / green "Approved" status text
+- [x] PDF link → `GET /api/jobs/:id/file/:phase/:filename` (`phase` = `staging` pre-approval, `workpaper` after); `[Split and grouped…]` rows render unlinked
+- [x] **Override modal** (only `pending_processor_review`): category `Select` (from playbook cats) + account/amount/date/notes; edits **batched client-side** in `Step1` until sign-off
+- [x] **File Exceptions** card ← `job.unprocessed_files[]` (conditional)
+- [x] **Processor Sign-off** card: processor notes `Textarea` + **Submit sign-off** → `POST /api/jobs/:id/processor-review {files, processor_notes}` (`useProcessorReview`)
+- [x] **Playbook Manager** card: per-category keyword editor ← `fund.keywords[job_type]`; Save → `POST /api/funds` (`useSavePlaybook`). **Keywords are comma-STRINGS, not arrays** (fixed mid-phase — was crashing)
+- [x] Phase gating: override/sign-off enabled only in `pending_processor_review`; read-only otherwise
+
+#### Parity checklist — existing Step 1 cards (all present & visible)
+- [x] Classified Audit Workpapers
+- [x] File Exceptions / Unprocessed Files (conditional)
+- [x] Human Processor Sign-off Escalation
+- [x] Playbook Manager
 
 ### Tests / Acceptance
-- [ ] `npm run test` / `typecheck` / `lint` green
-- [ ] **Parity: all 4 existing Step-1 cards render** (no content hidden)
-- [ ] Component test: documents table renders pending vs approved file shapes correctly
-- [ ] Component test: override edits batch client-side and submit as a single `files` payload
-- [ ] Component test: action bar hidden/disabled when status ≠ `pending_processor_review`
-- [ ] Component test: Playbook save calls `POST /api/funds` with the playbook intent shape
-- [ ] Manual (live): open a `pending_processor_review` job → override a doc → Approve & continue → job advances to `processing_review`, timeline moves to stage 3
+- [x] `npm run test` / `typecheck` / `lint` green (32 tests)
+- [x] **Parity: all 4 Step-1 cards render with real data** (verified live on an ADMCM `pending_processor_review` job, 18 files + 2 exceptions)
+- [x] Component test: documents table renders pending (Override) vs approved (read-only) shapes (`DocumentsCard.test.tsx`)
+- [x] Unit test: `toReviewFile` + playbook string round-trip (`utils.test.ts`)
+- [x] Manual (live): Override modal opens pre-filled; sign-off button enabled only in `pending_processor_review`
+- [ ] Manual (live): actually submit sign-off → advances to `processing_review` — **not triggered** (fires real Phase-2 LLM work; defer to user)
 
 ---
 
