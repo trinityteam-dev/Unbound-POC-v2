@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Box, Button, Group, Table, Text, Textarea, Tooltip } from '@mantine/core'
-import { IconCheck, IconHelpCircle, IconLoader2 } from '@tabler/icons-react'
+import { Anchor, Box, Button, Group, Table, Text, Textarea, Tooltip } from '@mantine/core'
+import { IconCheck, IconFileText, IconHelpCircle, IconLoader2 } from '@tabler/icons-react'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
+import { api } from '../../api/client'
 import { useSetQueryStatus } from '../../api/hooks'
 import { formatAud } from '../../api/format'
 import type { ClientQuery, JobDetail, ReconTxn } from '../../api/types'
@@ -27,6 +28,13 @@ type View = 'all' | 'matched' | 'unmatched' | `q:${string}`
 
 function txnAmount(t: ReconTxn): number | null {
   return t.credit ?? (t.debit != null ? -t.debit : null)
+}
+
+// Matched documents are usually approved workpaper files (link to open them);
+// some are bank-account references (e.g. "Ord Minnett Cash Account (…)") with no
+// file behind them — show those as plain text.
+function isFileLike(name: string): boolean {
+  return /\.(pdf|png|jpe?g|csv|xlsx?|docx?|txt)$/i.test(name.trim())
 }
 
 function QueryDraft({
@@ -324,6 +332,26 @@ export function ReconciliationScreen({ job, editable }: ReconciliationScreenProp
                       <Text fz={11} c={tokens.warn} mt={1}>
                         {t.unmatched_reason}
                       </Text>
+                    )}
+                    {matched && t.matched_document && (
+                      <Group gap={4} wrap="nowrap" mt={2} align="center">
+                        <IconFileText size={11} color="var(--gr)" style={{ flexShrink: 0 }} />
+                        {isFileLike(t.matched_document) ? (
+                          <Anchor
+                            href={api.fileUrl(job.job_id, 'workpaper', t.matched_document)}
+                            target="_blank"
+                            fz={11}
+                            c={tokens.accentTeal}
+                            style={{ wordBreak: 'break-word' }}
+                          >
+                            {t.matched_document}
+                          </Anchor>
+                        ) : (
+                          <Text fz={11} c={tokens.textTertiary}>
+                            {t.matched_document}
+                          </Text>
+                        )}
+                      </Group>
                     )}
                   </Table.Td>
                   <Table.Td ta="right" className="tabular-nums">
