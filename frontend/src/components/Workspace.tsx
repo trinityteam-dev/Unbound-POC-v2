@@ -4,6 +4,7 @@ import { IconAlertCircle } from '@tabler/icons-react'
 import type { JobDetail, JobFile } from '../api/types'
 import {
   defaultTabForStatus,
+  isPhase2Plus,
   jobPhase,
   tabsForStatus,
   type WorkspaceTab,
@@ -11,7 +12,12 @@ import {
 import { tokens } from '../theme'
 import { FailureView } from './FailureView'
 import { WorkspaceHeader } from './WorkspaceHeader'
-import { ReconciliationScreen } from './workspace/ReconciliationScreen'
+import {
+  ReconciliationScreen,
+  type ReconFocus,
+  type ReconView,
+} from './workspace/ReconciliationScreen'
+import { FundTotals } from './workspace/FundTotals'
 import { WorkpapersScreen } from './workspace/WorkpapersScreen'
 import { WorkspaceFooter } from './workspace/WorkspaceFooter'
 import { PlaybookDrawer } from './workspace/PlaybookDrawer'
@@ -51,6 +57,7 @@ export function Workspace({ job, isLoading, isError, onRetry }: WorkspaceProps) 
   const [tab, setTab] = useState<WorkspaceTab>('Reconciliation')
   const [files, setFiles] = useState<JobFile[]>([])
   const [playbookOpen, setPlaybookOpen] = useState(false)
+  const [reconFocus, setReconFocus] = useState<ReconFocus | undefined>(undefined)
 
   // Selecting a job resets sub-state to the phase default (spec §1).
   useEffect(() => {
@@ -58,7 +65,17 @@ export function Workspace({ job, isLoading, isError, onRetry }: WorkspaceProps) 
     setTab(defaultTabForStatus(job.status))
     setFiles(job.files)
     setPlaybookOpen(false)
+    setReconFocus(undefined)
   }, [job?.job_id, job?.status]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fund-totals strip routing: a metric jumps to the tab that owns its detail.
+  function goRecon(view: ReconView, acct: string | null) {
+    setTab('Reconciliation')
+    setReconFocus((prev) => ({ acct, view, n: (prev?.n ?? 0) + 1 }))
+  }
+  function goCompliance() {
+    setTab('Compliance')
+  }
 
   if (isLoading) {
     return (
@@ -170,6 +187,7 @@ export function Workspace({ job, isLoading, isError, onRetry }: WorkspaceProps) 
         <ReconciliationScreen
           job={job!}
           editable={job!.status === 'pending_reviewer_approval'}
+          focus={reconFocus}
         />
       )
     }
@@ -191,6 +209,11 @@ export function Workspace({ job, isLoading, isError, onRetry }: WorkspaceProps) 
         tab={activeTab}
         onTabChange={setTab}
         onOpenPlaybook={() => setPlaybookOpen(true)}
+        summary={
+          isPhase2Plus(job.status) ? (
+            <FundTotals job={job} onGoRecon={goRecon} onGoCompliance={goCompliance} />
+          ) : undefined
+        }
       />
 
       <Box style={{ flex: 1, display: 'flex', minHeight: 0 }}>{renderBody()}</Box>

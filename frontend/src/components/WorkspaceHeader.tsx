@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Badge, Box, Group, Text } from '@mantine/core'
 import { IconCoins, IconLock, IconSettings } from '@tabler/icons-react'
 import type { JobDetail } from '../api/types'
@@ -11,11 +12,19 @@ export interface WorkspaceHeaderProps {
   tab: WorkspaceTab
   onTabChange: (tab: WorkspaceTab) => void
   onOpenPlaybook: () => void
+  // Job-level summary rendered between the identity bar and the tab row.
+  summary?: ReactNode
 }
 
 // Identity bar (spec §4) + single tab row (spec §5). These regions never move;
 // switching jobs/tabs only swaps content inside them.
-export function WorkspaceHeader({ job, tab, onTabChange, onOpenPlaybook }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({
+  job,
+  tab,
+  onTabChange,
+  onOpenPlaybook,
+  summary,
+}: WorkspaceHeaderProps) {
   const meta = statusMeta[job.status]
   const tabs = tabsForStatus(job.status)
   const cost = formatCost(job.token_usage)
@@ -101,6 +110,9 @@ export function WorkspaceHeader({ job, tab, onTabChange, onOpenPlaybook }: Works
           </Badge>
         </Group>
       </Group>
+
+      {/* Job-level summary (fund totals) — persists across all tabs */}
+      {summary}
 
       {/* Single tab row — never wraps (spec §5) */}
       {tabs.length > 0 && (

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Anchor, Box, Button, Group, Table, Text, Textarea, Tooltip } from '@mantine/core'
 import {
   IconArrowsLeftRight,
@@ -25,12 +25,23 @@ const QUERY_DOT: Record<string, string> = {
 // Reconciliation screen (spec §6a, §7a). Rail scopes everything to one bank
 // account: Bank accounts → Views → Client queries. Selecting a rail item filters
 // the table. Selecting a query also opens an inline draft strip above the table.
+export type ReconView = 'all' | 'matched' | 'unmatched' | `q:${string}`
+
+// An external nudge (from the fund-totals strip) to focus a specific account /
+// view. `n` is a nonce so repeating the same focus still re-applies.
+export interface ReconFocus {
+  acct: string | null
+  view: ReconView
+  n: number
+}
+
 export interface ReconciliationScreenProps {
   job: JobDetail
   editable: boolean
+  focus?: ReconFocus
 }
 
-type View = 'all' | 'matched' | 'unmatched' | `q:${string}`
+type View = ReconView
 
 function txnAmount(t: ReconTxn): number | null {
   return t.credit ?? (t.debit != null ? -t.debit : null)
@@ -160,7 +171,7 @@ function QueryDraft({
   )
 }
 
-export function ReconciliationScreen({ job, editable }: ReconciliationScreenProps) {
+export function ReconciliationScreen({ job, editable, focus }: ReconciliationScreenProps) {
   const running = job.status === 'processing_review'
   const p2 = job.phase2_context
   const accounts = useMemo(() => Object.values(p2?.reconciliation_results ?? {}), [p2])
@@ -168,6 +179,15 @@ export function ReconciliationScreen({ job, editable }: ReconciliationScreenProp
 
   const [acctNum, setAcctNum] = useState<string>(() => accounts[0]?.account_number ?? '')
   const [view, setView] = useState<View>('all')
+
+  // Apply an external focus (from the fund-totals strip) once per nonce.
+  const lastFocus = useRef<number | undefined>(undefined)
+  useEffect(() => {
+    if (!focus || focus.n === lastFocus.current) return
+    lastFocus.current = focus.n
+    if (focus.acct) setAcctNum(focus.acct)
+    setView(focus.view)
+  }, [focus])
 
   const account =
     accounts.find((a) => a.account_number === acctNum) ?? accounts[0]
