@@ -304,6 +304,7 @@ export function ReconciliationScreen({ job, editable, focus }: ReconciliationScr
 
         {activeQuery && account && (
           <QueryDraft
+            key={`${activeQuery.id}-${account.account_number}`}
             jobId={job.job_id}
             query={activeQuery}
             accountNumber={account.account_number}
