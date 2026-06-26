@@ -13,6 +13,7 @@ import {
 import { notifications } from '@mantine/notifications'
 import { IconChevronRight, IconPlus, IconRefresh } from '@tabler/icons-react'
 import type { Job } from '../api/types'
+import { formatRelativeShort } from '../api/format'
 import { statusDotColor } from '../lib/status'
 import { useCreateJob, useFunds, useJobs } from '../api/hooks'
 import { tokens } from '../theme'
@@ -75,12 +76,33 @@ function JobRow({
         >
           {job.fund_name}
         </Text>
-        <IconChevronRight
-          className="job-row-chevron"
-          size={14}
-          color="var(--s3)"
-          style={{ flexShrink: 0 }}
-        />
+        {/* Run time at rest, swaps to a chevron on hover — same slot, no shift */}
+        <span
+          style={{
+            position: 'relative',
+            flexShrink: 0,
+            minWidth: 26,
+            height: 14,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+          }}
+        >
+          <Text
+            className="job-row-time tabular-nums"
+            fz={10.5}
+            c="var(--s3)"
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            {formatRelativeShort(job.created_at)}
+          </Text>
+          <IconChevronRight
+            className="job-row-chevron"
+            size={14}
+            color="var(--s3)"
+            style={{ position: 'absolute', right: -2 }}
+          />
+        </span>
       </Group>
     </UnstyledButton>
   )

@@ -64,6 +64,14 @@ export function formatRelative(s: string | null | undefined): string {
   return `${mo}mo ago`
 }
 
+/** Compact relative time for tight UI slots: "now", "5m", "2h", "3d", "4mo". */
+export function formatRelativeShort(s: string | null | undefined): string {
+  const rel = formatRelative(s)
+  if (!rel) return ''
+  if (rel === 'just now') return 'now'
+  return rel.replace(' ago', '')
+}
+
 /** Format a numeric AUD amount; em-dash when null/undefined. */
 export function formatAud(n: number | null | undefined): string {
   if (n == null) return '—'
