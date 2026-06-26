@@ -88,7 +88,7 @@ function NotesBoard({ job }: { job: JobDetail }) {
                   <Badge
                     color={n.type === 'warning' ? 'yellow' : 'red'}
                     variant="light"
-                    radius="sm"
+                    radius="xl"
                     size="xs"
                     tt="capitalize"
                   >

@@ -1,31 +1,36 @@
 import { useState } from 'react'
-import { Box, Button, Group, Loader, Select, Stack, Text, UnstyledButton } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
 import {
-  IconChevronRight,
-  IconPlayerPlay,
-  IconRefresh,
-  IconTriangleFilled,
-} from '@tabler/icons-react'
+  Box,
+  Button,
+  Group,
+  Loader,
+  Modal,
+  Select,
+  Stack,
+  Text,
+  UnstyledButton,
+} from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import { IconChevronRight, IconPlus, IconRefresh } from '@tabler/icons-react'
 import type { Job } from '../api/types'
-import { formatRelative } from '../api/format'
-import { statusDotColor, statusMeta } from '../lib/status'
+import { statusDotColor } from '../lib/status'
 import { useCreateJob, useFunds, useJobs } from '../api/hooks'
 import { tokens } from '../theme'
 
-// Dark sidebar — mirrors the existing IA (templates/index.html:1637):
-// brand, "Configure Audit Job" form, "Job Executions" list, engine footer.
+// De-boxed charcoal sidebar (spec §3). The job list is the hero: status dot +
+// fund name, no fills, no outlines. The run-config form is collapsed behind a
+// single "＋ New audit job" row that opens a modal on demand.
 export interface SidebarProps {
   selectedJobId: string | null
   onSelectJob: (jobId: string) => void
 }
 
 const SECTION_TITLE: React.CSSProperties = {
-  fontSize: 11.5,
+  fontSize: 10.5,
   fontWeight: 700,
-  letterSpacing: 0.8,
+  letterSpacing: 0.9,
   textTransform: 'uppercase',
-  color: tokens.sidebarTextFaint,
+  color: 'var(--s3)',
 }
 
 function JobRow({
@@ -37,49 +42,42 @@ function JobRow({
   active: boolean
   onClick: () => void
 }) {
-  const meta = statusMeta[job.status]
-  const rel = formatRelative(job.created_at)
   return (
     <UnstyledButton
       onClick={onClick}
-      className={active ? undefined : 'job-row'}
+      className="job-row hover-row"
       style={{
         display: 'block',
         width: '100%',
-        padding: '9px 12px',
-        borderRadius: 8,
-        background: active ? tokens.sidebarActiveBg : undefined,
-        borderLeft: `3px solid ${active ? tokens.accent : 'transparent'}`,
-        transition: 'background 120ms ease',
+        padding: '8px 10px 8px 12px',
+        borderRadius: 7,
+        borderLeft: `2px solid ${active ? tokens.accent : 'transparent'}`,
       }}
     >
       <Group gap={10} wrap="nowrap">
         <span
           style={{
-            width: 9,
-            height: 9,
+            width: 8,
+            height: 8,
             borderRadius: '50%',
             background: statusDotColor[job.status],
             flexShrink: 0,
           }}
         />
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <Text
-            fz={13.5}
-            fw={active ? 600 : 500}
-            c={active ? tokens.sidebarText : tokens.sidebarTextMuted}
-            truncate
-          >
-            {job.fund_name}
-          </Text>
-          <Text fz={11.5} c={tokens.sidebarTextFaint} truncate mt={1}>
-            {meta.label}
-            {rel ? ` · ${rel}` : ''}
-          </Text>
-        </div>
+        <Text
+          className="job-row-name"
+          fz={13}
+          fw={active ? 600 : 500}
+          c={active ? tokens.accentTeal : 'var(--s2)'}
+          truncate
+          style={{ flex: 1, minWidth: 0 }}
+        >
+          {job.fund_name}
+        </Text>
         <IconChevronRight
-          size={16}
-          color={tokens.sidebarTextFaint}
+          className="job-row-chevron"
+          size={14}
+          color="var(--s3)"
           style={{ flexShrink: 0 }}
         />
       </Group>
@@ -87,11 +85,17 @@ function JobRow({
   )
 }
 
-export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
-  const jobs = useJobs()
+function NewAuditModal({
+  opened,
+  onClose,
+  onCreated,
+}: {
+  opened: boolean
+  onClose: () => void
+  onCreated: (jobId: string) => void
+}) {
   const funds = useFunds()
   const createJob = useCreateJob()
-
   const [fundId, setFundId] = useState<string | null>(null)
   const [jobType, setJobType] = useState<string | null>('Accounting_Audit')
 
@@ -100,7 +104,7 @@ export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
       ?.filter((f) => !!f.id)
       .map((f) => ({ value: f.id, label: f.name ?? f.id })) ?? []
 
-  function handleRunAudit() {
+  function handleRun() {
     if (!fundId || createJob.isPending) return
     createJob.mutate(
       { fund_id: fundId, job_type: jobType ?? 'Accounting_Audit' },
@@ -112,7 +116,8 @@ export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
             message: 'The AI processor is classifying documents.',
           })
           setFundId(null)
-          onSelectJob(res.job_id)
+          onCreated(res.job_id)
+          onClose()
         },
         onError: (err) => {
           notifications.show({
@@ -126,32 +131,10 @@ export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
   }
 
   return (
-    <Stack
-      h="100%"
-      gap={0}
-      p={20}
-      style={{ background: tokens.sidebarBg, color: tokens.sidebarText }}
-    >
-      {/* Brand */}
-      <Box style={{ display: 'flex', alignItems: 'center', gap: 10 }} mb="lg">
-        <IconTriangleFilled size={17} color={tokens.primaryGreen} />
-        <div>
-          <Text fw={700} fz={16} c={tokens.sidebarText} lh={1.15}>
-            SMSF Orchestrator
-          </Text>
-          <Text fz={11.5} c={tokens.sidebarTextFaint}>
-            Doc Intelligence Platform
-          </Text>
-        </div>
-      </Box>
-
-      {/* Configure Audit Job */}
-      <Text style={SECTION_TITLE} mb="xs">
-        Configure Audit Job
-      </Text>
-      <Stack gap="xs" mb="lg">
+    <Modal opened={opened} onClose={onClose} title="New audit job" centered>
+      <Stack gap="sm">
         <Select
-          size="sm"
+          label="Fund"
           placeholder="Select fund"
           data={fundOptions}
           value={fundId}
@@ -161,8 +144,7 @@ export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
           disabled={funds.isLoading}
         />
         <Select
-          size="sm"
-          placeholder="Active playbook"
+          label="Playbook"
           value={jobType}
           onChange={setJobType}
           allowDeselect={false}
@@ -173,43 +155,78 @@ export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
         />
         <Button
           fullWidth
-          size="sm"
+          mt="xs"
           color="brand"
-          leftSection={<IconPlayerPlay size={16} />}
           loading={createJob.isPending}
           disabled={!fundId}
-          onClick={handleRunAudit}
+          onClick={handleRun}
         >
           Run audit pipeline
         </Button>
       </Stack>
+    </Modal>
+  )
+}
 
-      {/* Job Executions */}
-      <Box
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-        mb="xs"
+export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
+  const jobs = useJobs()
+  const [newOpen, setNewOpen] = useState(false)
+
+  return (
+    <Stack
+      gap={0}
+      style={{
+        width: 268,
+        flexShrink: 0,
+        background: tokens.sidebarBg,
+        color: 'var(--s1)',
+        borderRadius: 12,
+        border: `1px solid ${tokens.hairline}`,
+        padding: '14px 12px 12px',
+      }}
+    >
+      {/* ＋ New audit job — opens the run-config modal on demand */}
+      <UnstyledButton
+        onClick={() => setNewOpen(true)}
+        className="hover-row"
+        style={{ borderRadius: 7, padding: '8px 10px' }}
       >
-        <Text style={SECTION_TITLE}>Job Executions</Text>
-        <UnstyledButton onClick={() => jobs.refetch()} title="Refresh" aria-label="Refresh jobs">
-          <IconRefresh size={14} color={tokens.sidebarTextFaint} />
-        </UnstyledButton>
-      </Box>
+        <Group gap={10} wrap="nowrap">
+          <IconPlus size={16} color={tokens.accentTeal} stroke={2.4} />
+          <Text fz={13} fw={500} c="var(--s1)">
+            New audit job
+          </Text>
+        </Group>
+      </UnstyledButton>
 
+      <Box
+        style={{ borderTop: `1px solid ${tokens.hairline}`, margin: '10px 4px 12px' }}
+      />
+
+      {/* JOB EXECUTIONS · n */}
+      <Group justify="space-between" align="center" px={6} mb={6} wrap="nowrap">
+        <Text style={SECTION_TITLE}>Job executions · {jobs.data?.length ?? 0}</Text>
+        <UnstyledButton onClick={() => jobs.refetch()} title="Refresh" aria-label="Refresh jobs">
+          <IconRefresh size={13} color="var(--s3)" />
+        </UnstyledButton>
+      </Group>
+
+      {/* Boxless scrollable job list */}
       <Stack
-        gap={2}
-        className="sidebar-scroll"
-        style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 6 }}
+        gap={1}
+        className="scroll-accent"
+        style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
       >
         {jobs.isLoading ? (
-          <Loader size="xs" color="brand" />
+          <Loader size="xs" color="brand" mt="sm" mx="auto" />
         ) : jobs.isError ? (
-          <Text size="xs" c="red.4">
+          <Text size="xs" c="red.4" px={10} mt="sm">
             Failed to load jobs
           </Text>
         ) : (
-          jobs.data?.map((job) => (
+          jobs.data?.map((job, i) => (
             <JobRow
-              key={job.job_id}
+              key={`${job.job_id}-${i}`}
               job={job}
               active={job.job_id === selectedJobId}
               onClick={() => onSelectJob(job.job_id)}
@@ -218,15 +235,34 @@ export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
         )}
       </Stack>
 
-      {/* Engine footer */}
-      <Box pt="sm" mt="sm" style={{ borderTop: `1px solid rgba(255,255,255,.08)` }}>
-        <Text fz={11} c={tokens.sidebarTextFaint}>
-          Connected Engine
-        </Text>
-        <Text fz={12.5} c={tokens.primaryGreen} fw={600} mt={2}>
-          ● OpenRouter x-ai/grok-4.20
-        </Text>
+      {/* Connected engine — pinned to the bottom */}
+      <Box
+        pt={10}
+        mt={8}
+        px={6}
+        style={{ borderTop: `1px solid ${tokens.hairline}`, flexShrink: 0 }}
+      >
+        <Group gap={7} wrap="nowrap">
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: tokens.success,
+              flexShrink: 0,
+            }}
+          />
+          <Text fz={11.5} c="var(--s2)" truncate>
+            Engine · grok-4.20
+          </Text>
+        </Group>
       </Box>
+
+      <NewAuditModal
+        opened={newOpen}
+        onClose={() => setNewOpen(false)}
+        onCreated={onSelectJob}
+      />
     </Stack>
   )
 }

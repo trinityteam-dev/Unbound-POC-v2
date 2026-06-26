@@ -91,7 +91,7 @@ function SecuritiesCard({ portfolio }: { portfolio: Any | undefined }) {
         <Text fz={13} fw={500} c={tokens.textSecondary}>
           Distribution check
         </Text>
-        <Badge color={distPass ? 'green' : 'red'} variant="light" radius="sm" size="sm">
+        <Badge color={distPass ? 'green' : 'red'} variant="light" radius="xl" size="sm">
           {String(dist.reconciliation ?? 'n/a')}
         </Badge>
       </Group>

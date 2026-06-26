@@ -1,114 +1,157 @@
 import { Badge, Box, Group, Text } from '@mantine/core'
+import { IconCoins, IconLock, IconSettings } from '@tabler/icons-react'
 import type { JobDetail } from '../api/types'
+import { formatCost } from '../api/format'
 import { statusMeta } from '../lib/status'
+import { PHASE_LABEL, isPhase2Plus, tabsForStatus, type WorkspaceTab } from '../lib/phase'
 import { tokens } from '../theme'
-import { TokenCost } from './TokenCost'
-import { WorkflowTimeline } from './WorkflowTimeline'
-
-// Persistent header band (spec §4): identity & status / timeline / sub-tabs.
-// Sub-tabs (Row 3) appear only on Step 2 — mirrors the existing IA, where
-// Step 1 has no sub-tabs and Step 2 has 4 (switchDiTab).
-export const STEP2_TABS = [
-  'Reconciliation & Queries',
-  'Lead Schedules',
-  'Compliance',
-  'Agent Logs',
-] as const
-export type Step2Tab = (typeof STEP2_TABS)[number]
 
 export interface WorkspaceHeaderProps {
   job: JobDetail
-  activeStep: 1 | 2
-  subTab: Step2Tab
-  onSubTabChange: (tab: Step2Tab) => void
+  tab: WorkspaceTab
+  onTabChange: (tab: WorkspaceTab) => void
+  onOpenPlaybook: () => void
 }
 
-export function WorkspaceHeader({
-  job,
-  activeStep,
-  subTab,
-  onSubTabChange,
-}: WorkspaceHeaderProps) {
+// Identity bar (spec §4) + single tab row (spec §5). These regions never move;
+// switching jobs/tabs only swaps content inside them.
+export function WorkspaceHeader({ job, tab, onTabChange, onOpenPlaybook }: WorkspaceHeaderProps) {
   const meta = statusMeta[job.status]
+  const tabs = tabsForStatus(job.status)
+  const cost = formatCost(job.token_usage)
+  const totalTokens = job.token_usage?.job_total?.total_tokens
+  const wpLocked = isPhase2Plus(job.status)
 
   return (
-    <Box
-      style={{
-        background: tokens.surface,
-        borderBottom: `1px solid ${tokens.hairline}`,
-      }}
-      px="xl"
-      pt="lg"
-    >
-      {/* Row 1 — identity & status */}
-      <Group justify="space-between" align="flex-start" wrap="nowrap">
-        <div>
-          <Text fz={18} fw={600} c={tokens.textPrimary}>
+    <Box style={{ flexShrink: 0 }}>
+      {/* Identity bar */}
+      <Group
+        justify="space-between"
+        align="center"
+        wrap="nowrap"
+        px={20}
+        py={11}
+      >
+        <Box style={{ minWidth: 0 }}>
+          <Text fz={15} fw={500} c={tokens.textPrimary} truncate lh={1.25}>
             {job.fund_name}
           </Text>
-          {job.abn ? (
-            <Text fz={12.5} c={tokens.textTertiary} mt={2}>
-              ABN {job.abn}
-            </Text>
-          ) : null}
-        </div>
-        <Group gap="lg" wrap="nowrap" align="flex-start">
-          <TokenCost usage={job.token_usage} />
-          <Badge color={meta.color} variant="light" radius="sm" size="md">
+          <Text fz={11} c={tokens.textTertiary} mt={1} truncate>
+            {job.abn ? `ABN ${job.abn} · ` : ''}
+            {PHASE_LABEL[job.status]}
+          </Text>
+        </Box>
+
+        <Group gap={10} wrap="nowrap" align="center" style={{ flexShrink: 0 }}>
+          {cost && (
+            <Group
+              gap={6}
+              wrap="nowrap"
+              style={{
+                padding: '4px 10px',
+                borderRadius: 999,
+                border: `1px solid ${tokens.hairline}`,
+                background: tokens.strip,
+              }}
+            >
+              <IconCoins size={13} color={tokens.accent} />
+              <Text fz={12} fw={600} c={tokens.textPrimary} className="tabular-nums">
+                {cost}
+              </Text>
+              {totalTokens != null && (
+                <Text fz={11} c={tokens.textTertiary} className="tabular-nums">
+                  · {(totalTokens / 1_000_000).toFixed(2)}M
+                </Text>
+              )}
+            </Group>
+          )}
+
+          <button
+            onClick={onOpenPlaybook}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '5px 12px',
+              borderRadius: 7,
+              border: `1px solid var(--vi)`,
+              background: 'transparent',
+              color: tokens.violet,
+              fontFamily: 'inherit',
+              fontSize: 12.5,
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            <IconSettings size={14} />
+            Playbook
+          </button>
+
+          <Badge color={meta.color} variant="filled" radius={999} size="md">
             {meta.label}
           </Badge>
         </Group>
       </Group>
 
-      {/* Row 2 — workflow timeline */}
-      <Box py="xl" px="md">
-        <WorkflowTimeline status={job.status} progressPercent={job.progress_percent} />
-      </Box>
-
-      {/* Row 3 — secondary sub-tabs (Step 2 only) — segmented control */}
-      {activeStep === 2 ? (
-        <Box pb="md">
-          <Box
-            style={{
-              display: 'inline-flex',
-              gap: 2,
-              background: tokens.segBg,
-              borderRadius: 10,
-              padding: 4,
-            }}
-          >
-            {STEP2_TABS.map((tab) => {
-              const active = tab === subTab
-              return (
+      {/* Single tab row — never wraps (spec §5) */}
+      {tabs.length > 0 && (
+        <Box
+          px={20}
+          style={{
+            display: 'flex',
+            alignItems: 'stretch',
+            gap: 2,
+            borderBottom: `1px solid ${tokens.hairline}`,
+            flexWrap: 'nowrap',
+            overflow: 'hidden',
+          }}
+        >
+          {tabs.map((t, i) => {
+            const active = t === tab
+            const showDivider = i === 1 // after Workpapers
+            const locked = t === 'Workpapers' && wpLocked
+            return (
+              <Box key={t} style={{ display: 'flex', alignItems: 'stretch' }}>
+                {showDivider && (
+                  <Box
+                    style={{
+                      width: 1,
+                      alignSelf: 'center',
+                      height: 16,
+                      background: tokens.hairline,
+                      margin: '0 8px',
+                    }}
+                  />
+                )}
                 <button
-                  key={tab}
-                  onClick={() => onSubTabChange(tab)}
-                  className={active ? undefined : 'subtab-seg'}
+                  onClick={() => onTabChange(t)}
+                  className={active ? undefined : 'tab-btn'}
                   style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '9px 10px',
                     border: 'none',
-                    cursor: 'pointer',
+                    borderBottom: `2px solid ${active ? tokens.accent : 'transparent'}`,
+                    marginBottom: -1,
+                    background: 'transparent',
+                    color: active ? tokens.accentTeal : tokens.textTertiary,
                     fontFamily: 'inherit',
-                    padding: '7px 14px',
-                    borderRadius: 8,
-                    fontSize: 12.5,
+                    fontSize: 13,
                     fontWeight: active ? 600 : 500,
-                    background: active ? tokens.segActive : 'transparent',
-                    color: active ? tokens.accentTeal : tokens.textSecondary,
-                    boxShadow: 'none',
+                    whiteSpace: 'nowrap',
+                    cursor: 'pointer',
                     transition: 'color 120ms ease',
                   }}
                 >
-                  {tab}
+                  {locked && <IconLock size={12} />}
+                  {t}
                 </button>
-              )
-            })}
-          </Box>
+              </Box>
+            )
+          })}
         </Box>
-      ) : (
-        <Box h={8} />
       )}
     </Box>
   )
 }
-
-export const DEFAULT_STEP2_TAB: Step2Tab = STEP2_TABS[0]

@@ -52,36 +52,44 @@ export const theme = createTheme({
   },
 })
 
-// Structural design tokens (Teal Graphite). Cool graphite neutrals on a
-// graphite sidebar; amber reserved as the accent.
-// NOTE: `primaryGreen` is the legacy token name kept for component stability —
-// it now holds the active *primary* colour (teal) so the timeline/buttons
-// follow the theme. `accent` holds amber.
+// Structural design tokens — now backed by the theme-aware CSS variables
+// defined in global.css (spec §10). Reading `tokens.surface` etc. resolves to
+// `var(--sf)`, so every consumer automatically follows the light/dark toggle.
+// Legacy names are kept (mapped to the closest spec token) so existing
+// components don't need touching.
 export const tokens = {
-  // Charcoal sidebar — neutral warm-black; lets teal + amber pop.
-  sidebarBg: '#18181B',
-  sidebarText: 'rgba(255,255,255,.95)',
-  sidebarTextMuted: 'rgba(255,255,255,.64)',
-  sidebarTextFaint: 'rgba(255,255,255,.46)',
-  sidebarActiveBg: 'rgba(255,255,255,.08)',
-  // Dark workspace. Canvas (base) < surface (cards) so cards lift off it.
-  canvas: '#121316',
-  surface: '#1C1D21',
-  hairline: 'rgba(255,255,255,.09)',
-  textPrimary: '#E7E9EC',
-  textSecondary: '#A6ABB3',
-  textTertiary: '#71767E',
-  primaryGreen: '#0D9488', // brand teal (solid fills: timeline, buttons)
-  primaryTint: 'rgba(45,212,191,.16)', // active timeline-node fill on dark
-  accent: '#F59E0B', // amber — active/current indicators
-  accentTeal: '#2DD4BF', // brighter teal for text/links/active on dark
-  segBg: 'rgba(255,255,255,.06)', // segmented-control track
-  segActive: 'rgba(255,255,255,.13)', // segmented-control active chip
-  amberTint: 'rgba(245,158,11,.12)', // amber row-tint (rows needing review)
-  neutralFill: 'rgba(255,255,255,.10)', // upcoming timeline node
-  success: '#34D399',
-  warn: '#FBBF24',
-  danger: '#F87171',
+  // Sidebar (charcoal panel).
+  sidebarBg: 'var(--pn)',
+  sidebarText: 'var(--s1)',
+  sidebarTextMuted: 'var(--s2)',
+  sidebarTextFaint: 'var(--s3)',
+  sidebarActiveBg: 'var(--tn)',
+  // Workspace surfaces.
+  canvas: 'var(--bg)',
+  surface: 'var(--sf)',
+  strip: 'var(--st)', // footer / strip background
+  field: 'var(--fd)', // input background
+  hairline: 'var(--ln)',
+  border2: 'var(--l2)',
+  textPrimary: 'var(--i1)',
+  textSecondary: 'var(--i2)',
+  textTertiary: 'var(--i3)',
+  textFaint: 'var(--i4)',
+  primaryGreen: 'var(--tf)', // brand teal fill (buttons)
+  primaryTint: 'var(--tn)', // teal active tint
+  accent: 'var(--am)', // amber — active/current indicators
+  accentTeal: 'var(--tl)', // teal text/links/active
+  blue: 'var(--bl)', // processor / read-only evidence
+  violet: 'var(--vi)', // configuration (playbook)
+  segBg: 'var(--hv)',
+  segActive: 'var(--l2)',
+  amberTint: 'var(--at)', // amber draft tint
+  neutralFill: 'var(--l2)', // legacy (retired timeline)
+  accentBorder: 'var(--ab)', // details-pane accent border
+  scrollThumb: 'var(--sc)',
+  success: 'var(--gr)',
+  warn: 'var(--yl)',
+  danger: 'var(--rd)',
   // Shadows are faint on dark — borders carry most of the separation.
   shadowCard: '0 1px 2px rgba(0,0,0,.35), 0 4px 14px rgba(0,0,0,.28)',
   shadowCardHover: '0 6px 20px rgba(0,0,0,.4)',

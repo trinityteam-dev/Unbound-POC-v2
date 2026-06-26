@@ -17,7 +17,7 @@ import App from './App'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MantineProvider theme={theme} forceColorScheme="dark">
+    <MantineProvider theme={theme} defaultColorScheme="dark">
       <ModalsProvider>
         <Notifications />
         <QueryClientProvider client={queryClient}>

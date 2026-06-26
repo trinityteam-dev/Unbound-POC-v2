@@ -12,7 +12,7 @@ export const statusMeta: Record<JobStatus, StatusMeta> = {
   processing_docs: { label: 'Processing docs', color: 'blue' },
   pending_processor_review: { label: 'Pending processor', color: 'yellow' },
   processing_review: { label: 'Processing review', color: 'blue' },
-  pending_reviewer_approval: { label: 'Pending reviewer', color: 'yellow' },
+  pending_reviewer_approval: { label: 'Pending reviewer', color: 'orange' },
   completed: { label: 'Completed', color: 'green' },
   failed: { label: 'Failed', color: 'red' },
 }

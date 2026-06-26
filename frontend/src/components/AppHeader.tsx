@@ -1,92 +1,20 @@
-import { Burger, Group, Text } from '@mantine/core'
-import {
-  IconBriefcase,
-  IconChartBar,
-  IconCheck,
-  IconFileStack,
-  IconRobot,
-  IconClipboardList,
-  IconUsers,
-} from '@tabler/icons-react'
+import { ActionIcon, Group, Text, Tooltip, useMantineColorScheme } from '@mantine/core'
+import { IconCheck, IconMoon, IconSun } from '@tabler/icons-react'
 import { tokens } from '../theme'
 
-// Top app-level nav — mirrors the existing UI's header tabs
-// (templates/index.html:1595). Step 1 / Step 2 are functional; the rest are
-// placeholders shown disabled, exactly as today.
-export interface AppHeaderProps {
-  activeStep: 1 | 2
-  step2Enabled: boolean
-  onStepChange: (step: 1 | 2) => void
-  navOpened?: boolean
-  onBurgerClick?: () => void
-}
+// App top bar (spec §2): brand · theme toggle · avatar. 36px, full-bleed.
+export function AppHeader() {
+  const { colorScheme, toggleColorScheme } = useMantineColorScheme()
+  const dark = colorScheme !== 'light'
 
-function Tab({
-  icon,
-  label,
-  active,
-  disabled,
-  onClick,
-}: {
-  icon: React.ReactNode
-  label: string
-  active?: boolean
-  disabled?: boolean
-  onClick?: () => void
-}) {
   return (
-    <button
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      className={!disabled && !active ? 'app-tab' : undefined}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        height: 64,
-        padding: '0 16px',
-        border: 'none',
-        background: active ? 'rgba(45,212,191,0.12)' : 'transparent',
-        cursor: disabled ? 'default' : 'pointer',
-        color: active ? tokens.accentTeal : tokens.textTertiary,
-        opacity: disabled ? 0.4 : 1,
-        fontSize: 14,
-        fontWeight: active ? 600 : 500,
-        borderRadius: active ? '8px 8px 0 0' : 0,
-        borderBottom: `2px solid ${active ? tokens.accent : 'transparent'}`,
-        fontFamily: 'inherit',
-        transition: 'background 120ms ease',
-      }}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
-  )
-}
-
-export function AppHeader({
-  activeStep,
-  step2Enabled,
-  onStepChange,
-  navOpened,
-  onBurgerClick,
-}: AppHeaderProps) {
-  return (
-    <Group h="100%" px="md" gap={0} wrap="nowrap" style={{ overflow: 'hidden' }}>
-      <Burger
-        opened={navOpened}
-        onClick={onBurgerClick}
-        hiddenFrom="sm"
-        size="sm"
-        mr="sm"
-        aria-label="Toggle navigation"
-      />
-      <Group gap={8} pr="lg" wrap="nowrap">
+    <Group h={36} px={14} gap={0} justify="space-between" wrap="nowrap">
+      <Group gap={7} wrap="nowrap">
         <div
           style={{
-            width: 32,
-            height: 32,
-            borderRadius: 8,
+            width: 20,
+            height: 20,
+            borderRadius: 5,
             background: tokens.primaryGreen,
             display: 'flex',
             alignItems: 'center',
@@ -94,31 +22,41 @@ export function AppHeader({
             color: '#fff',
           }}
         >
-          <IconCheck size={18} stroke={3} />
+          <IconCheck size={12} stroke={3} />
         </div>
-        <Text fw={700} fz={17} c={tokens.textPrimary}>
-          ABC Accounting Inc.
+        <Text fw={700} fz={13} c={tokens.textPrimary}>
+          BeFree
         </Text>
       </Group>
 
-      <Group gap={0} wrap="nowrap">
-        <Tab
-          icon={<IconClipboardList size={17} />}
-          label="Step 1 — Doc Intel"
-          active={activeStep === 1}
-          onClick={() => onStepChange(1)}
-        />
-        <Tab
-          icon={<IconRobot size={17} />}
-          label="Step 2 — Orchestration & Data Intel"
-          active={activeStep === 2}
-          disabled={!step2Enabled}
-          onClick={() => onStepChange(2)}
-        />
-        <Tab icon={<IconUsers size={17} />} label="Clients" disabled />
-        <Tab icon={<IconBriefcase size={17} />} label="Jobs" disabled />
-        <Tab icon={<IconFileStack size={17} />} label="Order Docs" disabled />
-        <Tab icon={<IconChartBar size={17} />} label="Reports" disabled />
+      <Group gap={6} wrap="nowrap">
+        <Tooltip label={dark ? 'Light theme' : 'Dark theme'} withArrow>
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size="sm"
+            onClick={toggleColorScheme}
+            aria-label="Toggle theme"
+          >
+            {dark ? <IconSun size={15} color={tokens.textSecondary} /> : <IconMoon size={15} color={tokens.textSecondary} />}
+          </ActionIcon>
+        </Tooltip>
+        <div
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: '50%',
+            background: tokens.segActive,
+            color: tokens.textSecondary,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 10,
+            fontWeight: 600,
+          }}
+        >
+          TT
+        </div>
       </Group>
     </Group>
   )

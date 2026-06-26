@@ -1,5 +1,81 @@
+/* ───────────────────────────────────────────────────────────────────
+   Theme tokens (JOB_WORKSPACE_LAYOUT_SPEC §10) — theme-aware.
+   Dark is the default (:root); light overrides via the attribute Mantine
+   sets on <html> when the color scheme flips, so one toggle drives both
+   Mantine internals and these structural tokens.
+   ─────────────────────────────────────────────────────────────────── */
 :root {
-  --canvas: #121316;
+  --bg: #0e0f12; /* app canvas / gutter */
+  --pn: #18181b; /* sidebar panel */
+  --sf: #1c1d21; /* details surface */
+  --st: #16171a; /* footer / strip bg */
+  --fd: #121316; /* field / input bg */
+
+  --i1: #e7e9ec; /* text primary */
+  --i2: #a6abb3; /* text secondary */
+  --i3: #71767e; /* text tertiary */
+  --i4: #5b6068; /* label faint */
+
+  --ln: rgba(255, 255, 255, 0.07); /* hairline */
+  --l2: rgba(255, 255, 255, 0.12); /* border stronger */
+
+  --tl: #2dd4bf; /* accent teal (text/active) */
+  --tf: #0d9488; /* teal fill (buttons) */
+  --am: #f59e0b; /* amber (accent/tick/underline) */
+  --bl: #60a5fa; /* blue (processor/banner) */
+  --gr: #34d399; /* success/matched */
+  --yl: #fbbf24; /* warn/unmatched */
+  --rd: #f87171; /* danger/exceptions */
+  --vi: #b8a6f5; /* violet (playbook/config) */
+
+  --hv: rgba(255, 255, 255, 0.045); /* row hover */
+  --tn: rgba(45, 212, 191, 0.12); /* teal active tint (rail/accounts) */
+  --at: rgba(245, 158, 11, 0.06); /* amber draft tint */
+  --ab: rgba(45, 212, 191, 0.45); /* details-pane accent border */
+  --sc: rgba(45, 212, 191, 0.4); /* scrollbar thumb */
+
+  /* Sidebar text on charcoal (white-alpha on dark). */
+  --s1: rgba(255, 255, 255, 0.95);
+  --s2: rgba(255, 255, 255, 0.64);
+  --s3: rgba(255, 255, 255, 0.46);
+
+  --canvas: var(--bg);
+}
+
+:root[data-mantine-color-scheme='light'] {
+  --bg: #e7e9ed;
+  --pn: #f3f4f6;
+  --sf: #ffffff;
+  --st: #f7f8fa;
+  --fd: #ffffff;
+
+  --i1: #1a1c1f;
+  --i2: #52585f;
+  --i3: #868c94;
+  --i4: #a0a6ad;
+
+  --ln: rgba(0, 0, 0, 0.09);
+  --l2: rgba(0, 0, 0, 0.15);
+
+  --tl: #0d9488;
+  --tf: #0d9488;
+  --am: #c77c09;
+  --bl: #2f6fd0;
+  --gr: #16a34a;
+  --yl: #b7791f;
+  --rd: #dc2626;
+  --vi: #7c3aed;
+
+  --hv: rgba(0, 0, 0, 0.04);
+  --tn: rgba(13, 148, 136, 0.1);
+  --at: rgba(245, 158, 11, 0.12);
+  --ab: rgba(13, 148, 136, 0.5);
+  --sc: rgba(13, 148, 136, 0.4);
+
+  /* Sidebar text on a light charcoal panel — dark greys for contrast. */
+  --s1: #1a1c1f;
+  --s2: #52585f;
+  --s3: #868c94;
 }
 
 html,
@@ -11,32 +87,17 @@ body,
 body {
   margin: 0;
   font-size: 14px;
-  background: var(--canvas);
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Money / number columns — spec §3 */
+/* Money / number columns */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
-/* Pulsing ring on an in-progress AI timeline node (spec §4.1) */
-@keyframes wfPulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.45);
-  }
-  70% {
-    box-shadow: 0 0 0 6px rgba(13, 148, 136, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(13, 148, 136, 0);
-  }
-}
-.wf-pulse {
-  animation: wfPulse 1.8s infinite;
-}
-
+/* Spinner for "reconciling…" banners */
 @keyframes wfSpin {
   to {
     transform: rotate(360deg);
@@ -46,42 +107,67 @@ body {
   animation: wfSpin 1s linear infinite;
 }
 
-/* Hover affordances (inline styles can't do :hover) */
-.app-tab:hover {
-  background: rgba(255, 255, 255, 0.05);
+@keyframes wfPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(45, 212, 191, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0);
+  }
 }
-.subtab-seg:hover {
-  color: #e7e9ec;
-}
-.job-row:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-.job-row-light:hover {
-  background: rgba(255, 255, 255, 0.06);
+.wf-pulse {
+  animation: wfPulse 1.8s infinite;
 }
 
-/* Job-executions scroll panel — a subtly lifted surface on the dark sidebar
-   with a visible, themed scrollbar (the native one reads as invisible black). */
-.sidebar-scroll {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 10px;
+/* ── Hover affordances (inline styles can't do :hover) ── */
+
+/* Boxless job row: name brightens, chevron fades in. No background block. */
+.job-row .job-row-chevron {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.job-row:hover .job-row-chevron {
+  opacity: 1;
+}
+.job-row:hover .job-row-name {
+  color: var(--i1) !important;
+}
+
+/* Quiet text rows that gain a faint tint on hover (rail items, new-audit). */
+.hover-row {
+  transition: background 120ms ease, color 120ms ease;
+}
+.hover-row:hover {
+  background: var(--hv);
+}
+
+/* Tab underline buttons */
+.tab-btn:hover {
+  color: var(--i1);
+}
+
+/* ── Themed scrollbars: thin, translucent accent thumb, transparent track ── */
+.scroll-accent {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
+  scrollbar-color: var(--sc) transparent;
 }
-.sidebar-scroll::-webkit-scrollbar {
-  width: 10px;
+.scroll-accent::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
 }
-.sidebar-scroll::-webkit-scrollbar-track {
+.scroll-accent::-webkit-scrollbar-track {
   background: transparent;
 }
-.sidebar-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.22);
+.scroll-accent::-webkit-scrollbar-thumb {
+  background: var(--sc);
   border-radius: 8px;
-  border: 3px solid transparent;
+  border: 2px solid transparent;
   background-clip: padding-box;
 }
-.sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.36);
+.scroll-accent::-webkit-scrollbar-thumb:hover {
+  background: var(--tl);
   background-clip: padding-box;
 }
