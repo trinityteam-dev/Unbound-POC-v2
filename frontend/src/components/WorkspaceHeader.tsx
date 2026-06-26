@@ -87,7 +87,16 @@ export function WorkspaceHeader({ job, tab, onTabChange, onOpenPlaybook }: Works
             Playbook
           </button>
 
-          <Badge color={meta.color} variant="filled" radius={999} size="md">
+          {/* Fixed width so a longer status label never shifts the cost chip /
+              Playbook button when switching jobs. */}
+          <Badge
+            color={meta.color}
+            variant="filled"
+            radius={999}
+            size="md"
+            w={150}
+            styles={{ root: { justifyContent: 'center' }, label: { overflow: 'visible' } }}
+          >
             {meta.label}
           </Badge>
         </Group>
