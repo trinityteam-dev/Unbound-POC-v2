@@ -23,6 +23,7 @@ import { tokens } from '../theme'
 export interface SidebarProps {
   selectedJobId: string | null
   onSelectJob: (jobId: string) => void
+  width: number
 }
 
 const SECTION_TITLE: React.CSSProperties = {
@@ -168,7 +169,7 @@ function NewAuditModal({
   )
 }
 
-export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
+export function Sidebar({ selectedJobId, onSelectJob, width }: SidebarProps) {
   const jobs = useJobs()
   const [newOpen, setNewOpen] = useState(false)
 
@@ -176,12 +177,12 @@ export function Sidebar({ selectedJobId, onSelectJob }: SidebarProps) {
     <Stack
       gap={0}
       style={{
-        width: 268,
+        width,
         flexShrink: 0,
         background: tokens.sidebarBg,
         color: 'var(--s1)',
         borderRadius: 12,
-        border: `1px solid ${tokens.hairline}`,
+        border: `1px solid ${tokens.accentBorder}`,
         padding: '14px 12px 12px',
       }}
     >
