@@ -1,6 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Anchor, Box, Button, Group, Table, Text, Textarea, Tooltip } from '@mantine/core'
-import { IconCheck, IconFileText, IconHelpCircle, IconLoader2 } from '@tabler/icons-react'
+import {
+  IconArrowsLeftRight,
+  IconCheck,
+  IconFileText,
+  IconHelpCircle,
+  IconLoader2,
+} from '@tabler/icons-react'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
 import { api } from '../../api/client'
@@ -333,26 +339,61 @@ export function ReconciliationScreen({ job, editable }: ReconciliationScreenProp
                         {t.unmatched_reason}
                       </Text>
                     )}
-                    {matched && t.matched_document && (
-                      <Group gap={4} wrap="nowrap" mt={2} align="center">
-                        <IconFileText size={11} color="var(--gr)" style={{ flexShrink: 0 }} />
-                        {isFileLike(t.matched_document) ? (
-                          <Anchor
-                            href={api.fileUrl(job.job_id, 'workpaper', t.matched_document)}
-                            target="_blank"
-                            fz={11}
-                            c={tokens.accentTeal}
-                            style={{ wordBreak: 'break-word' }}
-                          >
-                            {t.matched_document}
-                          </Anchor>
-                        ) : (
-                          <Text fz={11} c={tokens.textTertiary}>
-                            {t.matched_document}
-                          </Text>
-                        )}
-                      </Group>
-                    )}
+                    {matched && t.matched_document && (() => {
+                      const md = t.matched_document
+                      // Inter-account transfer: the "document" is another bank
+                      // account in this fund — link to jump to it.
+                      const refAcct = !isFileLike(md)
+                        ? accounts.find(
+                            (a) =>
+                              a.account_number &&
+                              a.account_number !== account?.account_number &&
+                              md.includes(a.account_number),
+                          )
+                        : undefined
+                      return (
+                        <Group gap={4} wrap="nowrap" mt={2} align="center">
+                          {refAcct ? (
+                            <IconArrowsLeftRight
+                              size={11}
+                              color="var(--tl)"
+                              style={{ flexShrink: 0 }}
+                            />
+                          ) : (
+                            <IconFileText size={11} color="var(--gr)" style={{ flexShrink: 0 }} />
+                          )}
+                          {isFileLike(md) ? (
+                            <Anchor
+                              href={api.fileUrl(job.job_id, 'workpaper', md)}
+                              target="_blank"
+                              fz={11}
+                              c={tokens.accentTeal}
+                              style={{ wordBreak: 'break-word' }}
+                            >
+                              {md}
+                            </Anchor>
+                          ) : refAcct ? (
+                            <Anchor
+                              component="button"
+                              type="button"
+                              fz={11}
+                              c={tokens.accentTeal}
+                              style={{ wordBreak: 'break-word', textAlign: 'left' }}
+                              onClick={() => {
+                                setAcctNum(refAcct.account_number)
+                                setView('matched')
+                              }}
+                            >
+                              {md}
+                            </Anchor>
+                          ) : (
+                            <Text fz={11} c={tokens.textTertiary}>
+                              {md}
+                            </Text>
+                          )}
+                        </Group>
+                      )
+                    })()}
                   </Table.Td>
                   <Table.Td ta="right" className="tabular-nums">
                     <Text fz={12.5} c={t.credit != null ? tokens.success : tokens.textPrimary}>
