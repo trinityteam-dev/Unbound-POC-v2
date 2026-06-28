@@ -100,6 +100,32 @@ def ocr_pdf_single_page(filepath, page_idx, scratch_dir):
         else:
             raise RuntimeError("Tesseract output file not found")
 
+
+# Account-number detection from statement page text (RCA Layer 5 — see
+# docs/BANK_ACCOUNT_DISCOVERY_RCA.md). Conservative: only matches digit runs that
+# sit in an explicit account / BSB context, so it won't grab dates, amounts,
+# phone or reference numbers.
+_BSB_ACCT_RE = re.compile(
+    r'bsb\D{0,8}\d{3}[-\s]?\d{3}\D{0,14}([0-9][0-9\s-]{4,12}[0-9])', re.I)
+_ACCT_CONTEXT_RE = re.compile(
+    r'\b(?:a/c|acc(?:t|ount)?)\s*(?:no\.?|number|#)?\s*[:#-]?\s*'
+    r'(?:\d{3}[-\s]?\d{3}\s+)?'          # skip a leading BSB if present
+    r'([0-9][0-9\s-]{5,12}[0-9])', re.I)
+
+def detect_account_number(text):
+    """Best-effort bank account number from statement page text. Returns a
+    normalized digit string (6-16 digits) or None. Used to group statement pages
+    by account when the fund profile has no bank_accounts configured (Layer 5)."""
+    if not text:
+        return None
+    for rx in (_BSB_ACCT_RE, _ACCT_CONTEXT_RE):
+        m = rx.search(text)
+        if m:
+            num = re.sub(r'\D', '', m.group(1))
+            if 6 <= len(num) <= 16:
+                return num
+    return None
+
 # ---------------------------------------------------------------------------
 # Token economics helpers (Story T)
 # ---------------------------------------------------------------------------
@@ -561,10 +587,20 @@ You must return a valid JSON object matching this structure:
                         if acc_num in norm_text or (len(acc_num) > 8 and acc_num[-8:] in norm_text):
                             matched_acc = acc_num
                             break
-                            
+
                     if matched_acc:
                         current_acc = matched_acc
-                        
+                    else:
+                        # Layer 5: no configured account matched — discover one from
+                        # this page's content so the statement still splits by
+                        # account even when the fund profile has no bank_accounts.
+                        discovered = detect_account_number(page_text)
+                        if discovered:
+                            if discovered not in bank_account_pages:
+                                bank_account_pages[discovered] = []
+                                update_progress(percent, f"Discovered bank account {discovered} from statement content")
+                            current_acc = discovered
+
                     bank_account_pages[current_acc].append({
                         "file": filepath,
                         "page_num": page_idx,
