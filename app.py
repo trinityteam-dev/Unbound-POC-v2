@@ -10,7 +10,7 @@ from flask import Flask, jsonify, request, render_template, send_file
 from dotenv import load_dotenv
 
 load_dotenv()
-from core_engine import determine_target_filename, discover_fund_profile, load_llm_pricing, calculate_call_cost, record_token_usage
+from core_engine import determine_target_filename, discover_fund_profile, load_llm_pricing, calculate_call_cost, record_token_usage, derive_account_brand, friendly_account_name
 
 
 app = Flask(__name__, template_folder="templates")
@@ -88,6 +88,49 @@ def save_jobs(jobs):
 
 def get_job_dir(job_id):
     return os.path.join(WORKSPACE_DIR, "jobs", job_id)
+
+
+# Phase-2 resilience (RCA Layer 5, Phase-2 half — see
+# docs/BANK_ACCOUNT_DISCOVERY_RCA.md). When the fund config has no bank_accounts,
+# derive them from the classified statement files so reconciliation, the
+# Cash-at-Bank checklist, compliance and lead schedules all populate.
+_SPLIT_MARKER = "[Split and grouped by account]"
+
+def _norm_acct(n):
+    return (n or "").replace(" ", "").replace("-", "")
+
+def derive_bank_accounts_from_job(job):
+    """Build bank-account entries from a job's classified per-account statement
+    files. Names come from the source statement filename's bank brand."""
+    # account number -> a source filename (from the grouped-marker rows)
+    source_by_acct = {}
+    for f in job.get("files", []):
+        if f.get("classified_name") == _SPLIT_MARKER and f.get("account_number"):
+            source_by_acct.setdefault(_norm_acct(f["account_number"]), f.get("original_name"))
+
+    accounts = {}
+    for f in job.get("files", []):
+        num = f.get("account_number")
+        cn = f.get("classified_name") or ""
+        if not num or cn == _SPLIT_MARKER:
+            continue
+        if "bank statement" not in (f.get("category") or "").lower():
+            continue
+        key = _norm_acct(num)
+        if key in accounts:
+            continue
+        brand = derive_account_brand(source_by_acct.get(key))
+        accounts[key] = {"name": friendly_account_name(brand, num), "number": num, "bsb": ""}
+    return list(accounts.values())
+
+def merge_bank_accounts(config_accounts, discovered):
+    """Union by normalized account number; configured accounts win (they carry
+    real names / BSBs), discovered ones fill the gaps."""
+    by_num = {_norm_acct(a["number"]): a for a in discovered}
+    for a in (config_accounts or []):
+        by_num[_norm_acct(a.get("number"))] = a
+    return list(by_num.values())
+
 
 # Background workers
 def run_phase1_worker(job_id, folder_path, fund_profile, job_type, api_key):
@@ -662,7 +705,16 @@ def api_processor_review(job_id):
     funds = load_funds()
     fund_profile = next((f for f in funds if f["id"] == job["fund_id"]), None)
     api_key = os.environ.get("OPENROUTER_API_KEY")
-    
+
+    # Layer 5 (Phase-2 half): if the fund config has no bank accounts, seed them
+    # (job-scoped, not persisted) from the classified statements so every Phase-2
+    # output populates. Configured accounts always take precedence.
+    if fund_profile is not None:
+        discovered_accts = derive_bank_accounts_from_job(job)
+        if discovered_accts:
+            merged = merge_bank_accounts(fund_profile.get("bank_accounts", []), discovered_accts)
+            fund_profile = {**fund_profile, "bank_accounts": merged}
+
     t = threading.Thread(
         target=run_phase2_worker,
         args=(job_id, fund_profile, job["job_type"], api_key),

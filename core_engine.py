@@ -126,6 +126,38 @@ def detect_account_number(text):
                 return num
     return None
 
+
+# Friendly account naming for discovered accounts (RCA Layer 5 / Phase-2). The
+# bank brand lives in the statement's source filename (e.g. "NAB Statements
+# Acc#0672.pdf"), so we recover it there. Word-bounded for short tokens so we
+# don't match "Funding" → ING etc.
+_BRAND_RES = [
+    ('NAB', r'\bnab\b'),
+    ('Macquarie', r'macquarie'),
+    ('CBA', r'\bcba\b|commbank|commonwealth\s*bank'),
+    ('ANZ', r'\banz\b'),
+    ('Westpac', r'westpac'),
+    ('Ord Minnett', r'ord\s*min'),
+    ('Bendigo', r'bendigo'),
+    ('Bankwest', r'bankwest'),
+    ('Suncorp', r'suncorp'),
+    ('St George', r'st\.?\s*george'),
+]
+
+def derive_account_brand(source_filename):
+    """Recognise a bank brand from a statement's source filename, e.g.
+    'NAB Statements Acc#0672.pdf' -> 'NAB'. Returns None if unrecognised."""
+    fn = (source_filename or '').lower()
+    for brand, pat in _BRAND_RES:
+        if re.search(pat, fn):
+            return brand
+    return None
+
+def friendly_account_name(brand, account_number):
+    """Display name for a discovered account: '<Brand> Account <number>', or
+    'Bank Account <number>' when the brand is unknown."""
+    return f"{brand} Account {account_number}" if brand else f"Bank Account {account_number}"
+
 # ---------------------------------------------------------------------------
 # Token economics helpers (Story T)
 # ---------------------------------------------------------------------------
@@ -497,6 +529,10 @@ You must return a valid JSON object matching this structure:
         bank_account_pages[acc_num] = []
     bank_account_pages["unknown"] = []
 
+    # Brand per account discovered from statement content (Layer 5) — keyed by
+    # account number, derived from the source filename it was first seen on.
+    discovered_brands = {}
+
     for idx, filepath in enumerate(pdf_files, 1):
         filename = os.path.basename(filepath)
         percent = int(20 + (idx / len(pdf_files)) * 40)
@@ -599,6 +635,7 @@ You must return a valid JSON object matching this structure:
                             if discovered not in bank_account_pages:
                                 bank_account_pages[discovered] = []
                                 update_progress(percent, f"Discovered bank account {discovered} from statement content")
+                            discovered_brands.setdefault(discovered, derive_account_brand(filename))
                             current_acc = discovered
 
                     bank_account_pages[current_acc].append({
@@ -655,10 +692,15 @@ You must return a valid JSON object matching this structure:
             
         acc_name = "General Bank Account"
         if acc_num != "unknown":
-            for acc in fund_profile.get("bank_accounts", []):
-                if acc["number"].replace(" ", "").replace("-", "") == acc_num:
-                    acc_name = acc["name"]
-                    break
+            cfg = next(
+                (acc for acc in fund_profile.get("bank_accounts", [])
+                 if acc["number"].replace(" ", "").replace("-", "") == acc_num),
+                None,
+            )
+            if cfg:
+                acc_name = cfg["name"]
+            elif discovered_brands.get(acc_num):
+                acc_name = discovered_brands[acc_num]
         
         # File name e.g. "Bank Statement - CBA Accelerator Cash Account - 06716720642566.pdf"
         if acc_num != "unknown":
