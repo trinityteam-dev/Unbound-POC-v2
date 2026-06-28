@@ -5,11 +5,12 @@ import type {
   Fund,
   Job,
   JobDetail,
+  Playbook,
   ProcessorReviewPayload,
   QueryStatusPayload,
   ReviewAck,
   ReviewerReviewPayload,
-  SavePlaybookPayload,
+  SaveFundComplementsPayload,
   TokenUsage,
 } from './types'
 
@@ -39,6 +40,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const post = <T>(path: string, body: unknown) =>
   request<T>(path, { method: 'POST', body: JSON.stringify(body) })
 
+const put = <T>(path: string, body: unknown) =>
+  request<T>(path, { method: 'PUT', body: JSON.stringify(body) })
+
 export const api = {
   // Funds
   getFunds: () => request<Fund[]>('/api/funds'),
@@ -47,10 +51,13 @@ export const api = {
     post<unknown>('/api/funds/bootstrap', { folders }),
   getFundCostSummary: (fundId: string) =>
     request<unknown>(`/api/funds/${fundId}/cost-summary`),
-
-  // POST /api/funds is overloaded — split into two intents (spec §8).
   registerFund: (fund: Partial<Fund>) => post<Fund>('/api/funds', fund),
-  savePlaybook: (payload: SavePlaybookPayload) =>
+
+  // Playbook — global shared taxonomy (GET/PUT) + additive per-fund complements.
+  getPlaybook: () => request<Playbook>('/api/playbook'),
+  savePlaybook: (playbook: Playbook) =>
+    put<{ status: string }>('/api/playbook', playbook),
+  saveFundComplements: (payload: SaveFundComplementsPayload) =>
     post<{ status: string }>('/api/funds', payload),
 
   // Jobs

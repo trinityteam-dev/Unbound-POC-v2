@@ -3,10 +3,11 @@ import { api } from './client'
 import { JOBS_LIST_POLL_MS, jobPollInterval } from '../lib/polling'
 import type {
   CreateJobPayload,
+  Playbook,
   ProcessorReviewPayload,
   QueryStatusPayload,
   ReviewerReviewPayload,
-  SavePlaybookPayload,
+  SaveFundComplementsPayload,
 } from './types'
 
 /** Jobs list — polled every 10s (spec §7). */
@@ -63,11 +64,28 @@ export function useProcessorReview(jobId: string) {
   })
 }
 
-/** Save a fund's playbook keywords (POST /api/funds). */
+/** Global classification playbook (shared taxonomy + keywords). */
+export function usePlaybook() {
+  return useQuery({
+    queryKey: ['playbook'],
+    queryFn: api.getPlaybook,
+  })
+}
+
+/** Save the global playbook (PUT /api/playbook). */
 export function useSavePlaybook() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (payload: SavePlaybookPayload) => api.savePlaybook(payload),
+    mutationFn: (playbook: Playbook) => api.savePlaybook(playbook),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['playbook'] }),
+  })
+}
+
+/** Save a fund's additive keyword complements (POST /api/funds). */
+export function useSaveFundComplements() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: SaveFundComplementsPayload) => api.saveFundComplements(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['funds'] }),
   })
 }

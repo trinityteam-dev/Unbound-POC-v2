@@ -17,6 +17,7 @@ app = Flask(__name__, template_folder="templates")
 WORKSPACE_DIR = os.getcwd()
 FUNDS_CONFIG_FILE = os.path.join(WORKSPACE_DIR, "funds_config.json")
 JOBS_DB_FILE = os.path.join(WORKSPACE_DIR, "jobs_db.json")
+PLAYBOOK_CONFIG_FILE = os.path.join(WORKSPACE_DIR, "playbook_config.json")
 
 def load_funds():
     if not os.path.exists(FUNDS_CONFIG_FILE):
@@ -30,6 +31,47 @@ def load_funds():
 def save_funds(funds):
     with open(FUNDS_CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(funds, f, indent=2)
+
+
+# Global classification playbook (category -> keyword rules per job_type). Single
+# source of truth; per-fund tuning lives in fund["keyword_complements"] and is
+# merged (union) on top at job-processing time. See docs/PLAYBOOK_REFACTOR_DESIGN.md.
+def load_playbook():
+    if not os.path.exists(PLAYBOOK_CONFIG_FILE):
+        return {}
+    with open(PLAYBOOK_CONFIG_FILE, "r", encoding="utf-8") as f:
+        try:
+            return json.load(f)
+        except Exception:
+            return {}
+
+def save_playbook(playbook):
+    with open(PLAYBOOK_CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(playbook, f, indent=2)
+
+def _kw_tokens(rule):
+    return [t.strip() for t in (rule or "").split(",") if t.strip()]
+
+def _union_keywords(base_rule, extra_rule):
+    out, seen = [], set()
+    for t in _kw_tokens(base_rule) + _kw_tokens(extra_rule):
+        k = t.lower()
+        if k not in seen:
+            seen.add(k)
+            out.append(t)
+    return ", ".join(out)
+
+def resolve_playbook(fund_profile, job_type):
+    """Effective {category: rule} for a fund = global playbook UNION the fund's
+    additive complements. Complements can add keywords to a category and add new
+    categories, but never replace or remove (additive-only — see design doc)."""
+    global_cats = (load_playbook() or {}).get(job_type, {}) or {}
+    comp = (fund_profile.get("keyword_complements", {}) or {}).get(job_type, {}) or {}
+    categories = list(global_cats.keys()) + [c for c in comp if c not in global_cats]
+    return {
+        cat: _union_keywords(global_cats.get(cat, ""), comp.get(cat, ""))
+        for cat in categories
+    }
 
 def load_jobs():
     if not os.path.exists(JOBS_DB_FILE):
@@ -295,11 +337,23 @@ def api_funds():
         return jsonify({"status": "success", "funds": funds})
 
 
+# API - Global classification playbook (shared category taxonomy + keywords)
+@app.route("/api/playbook", methods=["GET", "PUT"])
+def api_playbook():
+    if request.method == "GET":
+        return jsonify(load_playbook())
+    data = request.json or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "Playbook must be an object of {job_type: {category: rules}}."}), 400
+    save_playbook(data)
+    return jsonify({"status": "success", "playbook": data})
+
+
 def _derive_fund_id(folder_name):
     return re.sub(r'[^a-z0-9]+', '_', folder_name.lower()).strip('_')
 
 
-def _empty_fund_config(fund_id, folder_path, keywords):
+def _empty_fund_config(fund_id, folder_path):
     return {
         "id": fund_id,
         "name": "",
@@ -307,11 +361,11 @@ def _empty_fund_config(fund_id, folder_path, keywords):
         "folder_path": folder_path,
         "bank_accounts": [],
         "members": [],
-        "keywords": keywords,
+        "keyword_complements": {},
     }
 
 
-def _profile_to_fund_config(fund_id, folder_path, profile, keywords):
+def _profile_to_fund_config(fund_id, folder_path, profile):
     bank_accounts = [
         {
             "name": acc.get("name") or "",
@@ -336,7 +390,7 @@ def _profile_to_fund_config(fund_id, folder_path, profile, keywords):
         "folder_path": folder_path,
         "bank_accounts": bank_accounts,
         "members": members,
-        "keywords": keywords,
+        "keyword_complements": {},
     }
 
 
@@ -384,7 +438,6 @@ def api_funds_bootstrap():
         return jsonify({"error": "OPENROUTER_API_KEY not set"}), 500
 
     funds = load_funds()
-    keyword_template = funds[0]["keywords"] if funds else {}
     existing_ids = {f["id"] for f in funds}
 
     scratch_dir = os.path.join(WORKSPACE_DIR, "jobs", "_bootstrap_scratch")
@@ -412,14 +465,14 @@ def api_funds_bootstrap():
 
         if not has_pdfs:
             warning = "no PDFs found — fill in manually"
-            proposed = _empty_fund_config(candidate_id, folder_path, keyword_template)
+            proposed = _empty_fund_config(candidate_id, folder_path)
         else:
             try:
                 profile = discover_fund_profile(abs_path, api_key, scratch_dir)
-                proposed = _profile_to_fund_config(candidate_id, folder_path, profile, keyword_template)
+                proposed = _profile_to_fund_config(candidate_id, folder_path, profile)
             except Exception as e:
                 warning = f"extraction failed: {str(e)}"
-                proposed = _empty_fund_config(candidate_id, folder_path, keyword_template)
+                proposed = _empty_fund_config(candidate_id, folder_path)
 
         results.append({"proposed": proposed, "warning": warning})
 
@@ -489,7 +542,12 @@ def api_create_job():
     save_jobs(jobs)
     
     api_key = os.environ.get("OPENROUTER_API_KEY")
-    
+
+    # Resolve the effective playbook (global UNION fund complements) and inject it
+    # as fund_profile["keywords"] so the engine (which reads keywords[job_type])
+    # stays unchanged. See docs/PLAYBOOK_REFACTOR_DESIGN.md.
+    fund_profile = {**fund_profile, "keywords": {job_type: resolve_playbook(fund_profile, job_type)}}
+
     # Launch Phase 1 worker thread
     t = threading.Thread(
         target=run_phase1_worker,

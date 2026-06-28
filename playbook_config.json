@@ -1,0 +1,22 @@
+{
+  "Accounting": {
+    "Accountancy": "Accountancy, Fee, Invoice, Services, Accountant",
+    "Bank Statement": "CBA, Account, Statement, Transaction, BSB",
+    "Portfolio Valuation": "Valuation, Portfolio, Shares, Assets, Market Value"
+  },
+  "Accounting_Audit": {
+    "ATO Trustee Declaration": "ATO, Trustee, Declaration, Compliance",
+    "Accountancy": "Accountancy, Fee, Invoice, Services, Accountant",
+    "Audit Invoice": "Audit, Auditor, Fee, Invoice, Engagement",
+    "Bank Statement": "CBA, Account, Statement, Transaction, BSB",
+    "F25 Periodic Statement Metrics": "Annual periodic statement Metrics Master Income",
+    "Income Tax": "Income Tax Account, ITA, Tax Assessment, Refund",
+    "Income Tax Activity": "ICA, ITA, Activity Statement, Portal, Client Account",
+    "Ordr Mint Transation Listing": "Ord Minnett, broker, transaction, ledger, account 1160944, buy, sell, EFT",
+    "Portfolio Valuation": "Valuation, Portfolio, Shares, Assets, Market Value",
+    "Tax Statement Metrics": "Annual tax statement, trust distribution, Metrics",
+    "Total Super annuation balance": "Total Superannuation Balance, TSB, Member, Account Balance, TSB composition",
+    "Trust Deed": "Trust Deed, Deed, Rules, Establishment",
+    "ASIC Extract": "ASIC"
+  }
+}

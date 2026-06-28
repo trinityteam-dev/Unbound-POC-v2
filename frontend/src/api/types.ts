@@ -157,9 +157,15 @@ export interface JobDetail extends Job {
   token_usage?: TokenUsage | null
 }
 
-// ── Funds ──────────────────────────────────────────────────────────
+// ── Funds & playbook ───────────────────────────────────────────────
 // NOTE (Phase 2): funds use `id`/`name` — NOT `fund_id`/`fund_name` (those
 // are job fields). Confirmed against live /api/funds.
+
+// Playbook[job_type][category] is a comma-separated keyword STRING (engine
+// format). The global playbook lives at /api/playbook; per-fund additive
+// tuning lives in fund.keyword_complements (see docs/PLAYBOOK_REFACTOR_DESIGN.md).
+export type Playbook = Record<string, Record<string, string>>
+
 export interface Fund {
   id: string
   name: string
@@ -167,9 +173,9 @@ export interface Fund {
   folder_path?: string
   members?: unknown
   bank_accounts?: unknown
-  // keywords[job_type][category] is a comma-separated STRING (engine format);
-  // tolerate string[] too for safety.
-  keywords?: Record<string, Record<string, string | string[]>>
+  // Additive per-fund keyword/category complements (merged onto the global
+  // playbook at processing time). Replaces the former per-fund `keywords` copy.
+  keyword_complements?: Playbook
   [k: string]: unknown
 }
 
@@ -202,10 +208,10 @@ export interface ProcessorReviewPayload {
   processor_notes: string
 }
 
-// POST /api/funds with a fund's id + merged keywords (savePlaybook intent).
-export interface SavePlaybookPayload {
+// POST /api/funds with a fund's id + its additive keyword complements.
+export interface SaveFundComplementsPayload {
   id: string
-  keywords: Record<string, Record<string, string | string[]>>
+  keyword_complements: Playbook
 }
 
 export interface ReviewAck {

@@ -109,7 +109,9 @@ def check_10_1_no_pdfs():
         assert p["folder_path"] == rel_path
         assert isinstance(p["bank_accounts"], list)
         assert isinstance(p["members"], list)
-        assert isinstance(p["keywords"], dict)
+        # Keywords now live in the global playbook; new funds carry additive
+        # complements only (see docs/PLAYBOOK_REFACTOR_DESIGN.md).
+        assert isinstance(p["keyword_complements"], dict)
         ok(f"Proposed config shape correct (id={p['id']})")
     finally:
         shutil.rmtree(tmp_folder, ignore_errors=True)
