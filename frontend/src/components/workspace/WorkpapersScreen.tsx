@@ -295,11 +295,11 @@ export function WorkpapersScreen({ job, files, editable, onApplyOverride }: Work
           >
             <Table.Thead>
               <Table.Tr>
-                <Table.Th style={{ width: '30%' }}>Document</Table.Th>
-                <Table.Th style={{ width: '16%' }}>Category</Table.Th>
-                <Table.Th style={{ width: '26%' }}>Extracted</Table.Th>
-                <Table.Th style={{ width: '14%' }}>Status</Table.Th>
-                {editable && <Table.Th style={{ width: '14%' }} />}
+                <Table.Th style={{ width: '26%' }}>Document</Table.Th>
+                <Table.Th style={{ width: '30%' }}>Category</Table.Th>
+                <Table.Th style={{ width: '18%' }}>Extracted</Table.Th>
+                <Table.Th style={{ width: '10%' }}>Status</Table.Th>
+                {editable && <Table.Th style={{ width: '16%' }} />}
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>

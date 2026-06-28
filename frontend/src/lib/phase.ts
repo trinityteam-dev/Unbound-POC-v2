@@ -27,17 +27,17 @@ export const PHASE_LABEL: Record<JobStatus, string> = {
   failed: 'Failed',
 }
 
-// Tabs available in the workspace (spec §5). The `Workpapers` tab is far-left to
-// read as the pipeline flow; it is read-only once the job reaches phase 2.
+// Tabs available in the workspace (spec §5). The `Classified Docs` tab is far-left
+// to read as the pipeline flow; it is read-only once the job reaches phase 2.
 export type WorkspaceTab =
-  | 'Workpapers'
+  | 'Classified Docs'
   | 'Reconciliation'
   | 'Lead schedules'
   | 'Compliance'
   | 'Agent logs'
 
 export const PHASE2_TABS: WorkspaceTab[] = [
-  'Workpapers',
+  'Classified Docs',
   'Reconciliation',
   'Lead schedules',
   'Compliance',
@@ -47,22 +47,22 @@ export const PHASE2_TABS: WorkspaceTab[] = [
 /** Tabs for a job's phase, in display order. Phase 0 has none. */
 export function tabsForStatus(status: JobStatus): WorkspaceTab[] {
   const phase = jobPhase(status)
-  if (phase === 1) return ['Workpapers']
+  if (phase === 1) return ['Classified Docs']
   if (phase === 1.5 || phase === 2 || phase === 3) return PHASE2_TABS
   return []
 }
 
 /** Default-selected tab for a status (spec §5: Reconciliation in phase 2/3). */
 export function defaultTabForStatus(status: JobStatus): WorkspaceTab {
-  return jobPhase(status) === 1 ? 'Workpapers' : 'Reconciliation'
+  return jobPhase(status) === 1 ? 'Classified Docs' : 'Reconciliation'
 }
 
-/** Tabs other than Reconciliation/Workpapers hide the filter rail (spec §7c). */
+/** Tabs other than Reconciliation/Classified Docs hide the filter rail (spec §7c). */
 export function tabHasRail(tab: WorkspaceTab): boolean {
-  return tab === 'Reconciliation' || tab === 'Workpapers'
+  return tab === 'Reconciliation' || tab === 'Classified Docs'
 }
 
-/** True once the job has reached phase 2+ (Workpapers becomes read-only). */
+/** True once the job has reached phase 2+ (Classified Docs becomes read-only). */
 export function isPhase2Plus(status: JobStatus): boolean {
   const p = jobPhase(status)
   return p === 1.5 || p === 2 || p === 3

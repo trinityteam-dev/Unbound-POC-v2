@@ -169,7 +169,7 @@ export function Workspace({ job, isLoading, isError, onRetry }: WorkspaceProps) 
       )
     }
 
-    if (activeTab === 'Workpapers') {
+    if (activeTab === 'Classified Docs') {
       // Phase 2/3 evidence is read-only and reflects the job's saved files.
       const wpFiles = editableFiles ? files : job!.files
       return (

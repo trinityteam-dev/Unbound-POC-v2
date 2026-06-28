@@ -11,7 +11,7 @@ export function RailShell({ children }: { children: ReactNode }) {
     <Box
       className="scroll-accent"
       style={{
-        width: 168,
+        width: 204,
         flexShrink: 0,
         overflowY: 'auto',
         borderRight: `1px solid ${tokens.hairline}`,

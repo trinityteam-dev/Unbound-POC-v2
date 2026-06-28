@@ -129,8 +129,8 @@ export function WorkspaceHeader({
         >
           {tabs.map((t, i) => {
             const active = t === tab
-            const showDivider = i === 1 // after Workpapers
-            const locked = t === 'Workpapers' && wpLocked
+            const showDivider = i === 1 // after Classified Docs
+            const locked = t === 'Classified Docs' && wpLocked
             return (
               <Box key={t} style={{ display: 'flex', alignItems: 'stretch' }}>
                 {showDivider && (

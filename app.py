@@ -10,7 +10,7 @@ from flask import Flask, jsonify, request, render_template, send_file
 from dotenv import load_dotenv
 
 load_dotenv()
-from core_engine import determine_target_filename, discover_fund_profile, load_llm_pricing, calculate_call_cost, record_token_usage, derive_account_brand, friendly_account_name
+from core_engine import determine_target_filename, get_unique_filepath, discover_fund_profile, load_llm_pricing, calculate_call_cost, record_token_usage, derive_account_brand, friendly_account_name
 
 
 app = Flask(__name__, template_folder="templates")
@@ -654,25 +654,27 @@ def api_processor_review(job_id):
         # Find and copy PDF files
         if class_name and class_name != "[Split and grouped by account]":
             src_file = os.path.join(staging_dir, class_name)
-            
-            # Check custom classification rename
-            new_filename = class_name
+
+            # Determine target name: re-derive from category (handles reclassification),
+            # then uniquify so duplicate categories (e.g. multiple Income Tax docs) each
+            # get a distinct file in the workpaper directory.
+            base_name = class_name
             if category:
-                # If category changed, determine new name
-                new_filename = determine_target_filename({
+                base_name = determine_target_filename({
                     "category": category,
                     "account_number": acc_num,
                     "amount": amount,
                     "date": date_val
                 }, class_name)
-                
-            dest_file = os.path.join(workpapers_dir, new_filename)
-            
+
+            dest_file = get_unique_filepath(workpapers_dir, base_name)
+            final_filename = os.path.basename(dest_file)
+
             if os.path.exists(src_file):
                 shutil.copy2(src_file, dest_file)
                 approved_files.append({
                     "original_name": orig_name,
-                    "classified_name": new_filename,
+                    "classified_name": final_filename,
                     "category": category,
                     "account_number": acc_num,
                     "amount": amount,
