@@ -545,19 +545,31 @@ You must return a valid JSON object matching this structure:
             text = extract_pdf_text(filepath, max_pages=3)
         except Exception as e:
             error_msg = f"Failed to extract PDF text: {str(e)}"
-            
-        # 2. Fall back to OCR if text is sparse (scanned PDF)
-        if not error_msg and len(text.strip()) < 50:
-            update_progress(percent, f"Running OCR fallback on scanned PDF: {filename}")
+
+        # 2. Fall back to OCR when text is absent OR when text density is too low
+        # for a multi-page PDF (indicates a scanned document whose image layer
+        # wasn't decoded — only stray label text was embedded).
+        # Threshold: < 30 chars per sampled page on files with more than 3 pages.
+        if not error_msg:
             try:
-                text = ocr_pdf_first_page(filepath, scratch_dir)
-                # Keep cache file for subsequent processing
-                ocr_save_path = os.path.join(scratch_dir, f"ocr_{filename}.txt")
-                with open(ocr_save_path, "w", encoding="utf-8") as f:
-                    f.write(text)
-            except Exception as e:
-                error_msg = f"OCR fallback failed: {str(e)}"
-                text = ""
+                _total_pages = len(PdfReader(filepath).pages)
+            except Exception:
+                _total_pages = 1
+            _pages_sampled = min(3, _total_pages)
+            _density_too_low = (
+                _total_pages > 3
+                and (len(text.strip()) / _pages_sampled) < 30
+            )
+            if len(text.strip()) < 50 or _density_too_low:
+                update_progress(percent, f"Running OCR fallback on scanned PDF: {filename}")
+                try:
+                    text = ocr_pdf_first_page(filepath, scratch_dir)
+                    ocr_save_path = os.path.join(scratch_dir, f"ocr_{filename}.txt")
+                    with open(ocr_save_path, "w", encoding="utf-8") as f:
+                        f.write(text)
+                except Exception as e:
+                    error_msg = f"OCR fallback failed: {str(e)}"
+                    text = ""
 
         if error_msg or not text.strip():
             unprocessed_files.append({
@@ -567,9 +579,11 @@ You must return a valid JSON object matching this structure:
             })
             continue
 
-        # 3. Query OpenRouter
+        # 3. Query OpenRouter — include the source filename so the LLM can use
+        # it as an additional classification signal (e.g. "Bank Statements" in
+        # the filename overrides weak or misleading body-text keywords).
         try:
-            res, usage = query_openrouter(api_key, system_prompt, f"Document content:\n```\n{text[:3500]}\n```\n\nClassify this document.", response_format={"type": "json_object"})
+            res, usage = query_openrouter(api_key, system_prompt, f"Source filename: {filename}\n\nDocument content:\n```\n{text[:3500]}\n```\n\nClassify this document.", response_format={"type": "json_object"})
             if record_usage:
                 record_usage(f'phase1_classify_{filename}', 'phase1', usage)
             classification = json.loads(res)
@@ -586,7 +600,19 @@ You must return a valid JSON object matching this structure:
 
         category = classification.get("category", "")
         reasoning = classification.get("reasoning", "")
-        is_bank_statement = "bank statement" in category.lower() or "statement" in category.lower() and ("statements" in filename.lower() or any(acc in filename for acc in bank_account_pages.keys()))
+        _fn_lower = filename.lower()
+        # A file is treated as a bank statement when:
+        # (a) the LLM category says so, OR
+        # (b) the source filename explicitly contains both "bank" and "statement"
+        #     — guards against misclassification when document body text is sparse.
+        is_bank_statement = (
+            "bank statement" in category.lower()
+            or (
+                "statement" in category.lower()
+                and ("statements" in _fn_lower or any(acc in filename for acc in bank_account_pages.keys()))
+            )
+            or ("bank" in _fn_lower and "statement" in _fn_lower)
+        )
 
         if is_bank_statement:
             update_progress(percent, f"Analyzing page account scopes in: {filename}")
