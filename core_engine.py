@@ -109,8 +109,12 @@ _BSB_ACCT_RE = re.compile(
     r'bsb\D{0,8}\d{3}[-\s]?\d{3}\D{0,14}([0-9][0-9\s-]{4,12}[0-9])', re.I)
 _ACCT_CONTEXT_RE = re.compile(
     r'\b(?:a/c|acc(?:t|ount)?)\s*(?:no\.?|number|#)?\s*[:#-]?\s*'
-    r'(?:\d{3}[-\s]?\d{3}\s+)?'          # skip a leading BSB if present
+    r'(?:\d{2,3}[-\s]?\d{3,4}\s+)?'     # skip a leading BSB (3+3 or CBA-style 2+4)
     r'([0-9][0-9\s-]{5,12}[0-9])', re.I)
+
+# Australian bank code prefixes (first 2 digits of BSB). Used to detect and strip
+# a BSB that was accidentally captured as part of the account number.
+_BSB_BANK_PREFIX_RE = re.compile(r'^(?:01|03|06|08|10|11|12|18|19|20|21|22|23|24|25|26|30|33|34|35|38|40|48|55|63|65|73|76|80|91|94|96|99)')
 
 def detect_account_number(text):
     """Best-effort bank account number from statement page text. Returns a
@@ -122,6 +126,13 @@ def detect_account_number(text):
         m = rx.search(text)
         if m:
             num = re.sub(r'\D', '', m.group(1))
+            # If the number is longer than a typical account number it likely
+            # includes a leading 6-digit BSB. Strip it when the prefix matches
+            # a known Australian bank code and the remainder is a plausible length.
+            if len(num) > 10 and _BSB_BANK_PREFIX_RE.match(num):
+                suffix = num[6:]
+                if 6 <= len(suffix) <= 10:
+                    num = suffix
             if 6 <= len(num) <= 16:
                 return num
     return None
@@ -1285,6 +1296,7 @@ def extract_transactions_from_statement(pdf_path, account, api_key, model=None, 
     # Extract full text across all pages
     try:
         reader = PdfReader(pdf_path)
+        total_pages = len(reader.pages)
         text_parts = []
         for page in reader.pages:
             page_text = page.extract_text()
@@ -1294,11 +1306,22 @@ def extract_transactions_from_statement(pdf_path, account, api_key, model=None, 
     except Exception as e:
         raise RuntimeError(f"Failed to read {pdf_path}: {e}")
 
-    # OCR fallback for scanned statements (first-page only; sufficient for sparse-text detection)
-    if len(text.strip()) < 100:
-        scratch_dir = os.path.join(os.path.dirname(pdf_path), "..", "scratch")
+    # OCR fallback for scanned statements. Use the same density-based gate as
+    # Phase 1: < 30 chars/page on a multi-page PDF means the text layer is just
+    # embedded labels from a scanned document. OCR every page so the full
+    # transaction history is available to the parser.
+    scratch_dir = os.path.join(os.path.dirname(pdf_path), "..", "scratch")
+    _density_too_low = total_pages > 3 and (len(text.strip()) / total_pages) < 30
+    if len(text.strip()) < 100 or _density_too_low:
         try:
-            text = ocr_pdf_first_page(pdf_path, scratch_dir)
+            ocr_parts = []
+            for page_idx in range(total_pages):
+                try:
+                    ocr_parts.append(ocr_pdf_single_page(pdf_path, page_idx, scratch_dir))
+                except Exception:
+                    pass
+            if ocr_parts:
+                text = "\n".join(ocr_parts)
         except Exception as e:
             raise RuntimeError(f"OCR fallback failed for {pdf_path}: {e}")
 
