@@ -560,7 +560,8 @@ You must return a valid JSON object matching this structure:
         # 2. Fall back to OCR when text is absent OR when text density is too low
         # for a multi-page PDF (indicates a scanned document whose image layer
         # wasn't decoded — only stray label text was embedded).
-        # Threshold: < 30 chars per sampled page on files with more than 3 pages.
+        # Threshold: < 80 chars per sampled page on files with more than 3 pages.
+        # Scanned label-only PDFs yield 40-60 chars/page; genuine text PDFs yield 200+.
         if not error_msg:
             try:
                 _total_pages = len(PdfReader(filepath).pages)
@@ -569,7 +570,7 @@ You must return a valid JSON object matching this structure:
             _pages_sampled = min(3, _total_pages)
             _density_too_low = (
                 _total_pages > 3
-                and (len(text.strip()) / _pages_sampled) < 30
+                and (len(text.strip()) / _pages_sampled) < 80
             )
             if len(text.strip()) < 50 or _density_too_low:
                 update_progress(percent, f"Running OCR fallback on scanned PDF: {filename}")
@@ -1307,11 +1308,11 @@ def extract_transactions_from_statement(pdf_path, account, api_key, model=None, 
         raise RuntimeError(f"Failed to read {pdf_path}: {e}")
 
     # OCR fallback for scanned statements. Use the same density-based gate as
-    # Phase 1: < 30 chars/page on a multi-page PDF means the text layer is just
+    # Phase 1: < 80 chars/page on a multi-page PDF means the text layer is just
     # embedded labels from a scanned document. OCR every page so the full
     # transaction history is available to the parser.
     scratch_dir = os.path.join(os.path.dirname(pdf_path), "..", "scratch")
-    _density_too_low = total_pages > 3 and (len(text.strip()) / total_pages) < 30
+    _density_too_low = total_pages > 3 and (len(text.strip()) / total_pages) < 80
     if len(text.strip()) < 100 or _density_too_low:
         try:
             ocr_parts = []
@@ -1429,7 +1430,7 @@ def _extract_supporting_doc_text(doc_path, scratch_dir=None):
     """Extract text from a supporting document for the reconciliation prompt.
 
     1. Try pypdf across ALL pages.
-    2. If sparse (< 100 chars total), fall back to Tesseract OCR on every page and concatenate.
+    2. If sparse (< 80 chars/page on multi-page PDFs, or < 100 chars total), fall back to Tesseract OCR on every page and concatenate.
 
     Returns the extracted text string (may be empty if all methods fail).
     """
