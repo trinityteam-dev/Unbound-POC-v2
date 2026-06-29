@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Box } from '@mantine/core'
 import { useJobDetails, useJobs } from './api/hooks'
 import { AppHeader } from './components/AppHeader'
 import { Sidebar } from './components/Sidebar'
 import { Workspace } from './components/Workspace'
+import { Home } from './components/Home'
+import { NewAuditModal } from './components/NewAuditModal'
 
 const MIN_SIDEBAR = 220
 const MAX_SIDEBAR = 640
@@ -80,18 +82,13 @@ function ResizeHandle({
 export default function App() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR)
+  const [newAuditOpen, setNewAuditOpen] = useState(false)
 
   const jobs = useJobs()
   const details = useJobDetails(selectedJobId)
   const job = details.data
 
-  // Auto-select the first job once the list loads (demo convenience).
-  useEffect(() => {
-    if (!selectedJobId && jobs.data && jobs.data.length > 0) {
-      setSelectedJobId(jobs.data[0].job_id)
-    }
-  }, [jobs.data, selectedJobId])
-
+  // No auto-select: the app opens on the Home dashboard (no job selected).
   return (
     <Box
       style={{
@@ -118,16 +115,33 @@ export default function App() {
         <Sidebar
           selectedJobId={selectedJobId}
           onSelectJob={setSelectedJobId}
+          onGoHome={() => setSelectedJobId(null)}
+          onNewAudit={() => setNewAuditOpen(true)}
           width={sidebarWidth}
         />
         <ResizeHandle width={sidebarWidth} onResize={setSidebarWidth} />
-        <Workspace
-          job={job}
-          isLoading={!!selectedJobId && details.isLoading}
-          isError={details.isError}
-          onRetry={() => details.refetch()}
-        />
+        {selectedJobId === null ? (
+          <Home
+            jobs={jobs.data}
+            isLoading={jobs.isLoading}
+            onSelectJob={setSelectedJobId}
+            onNewAudit={() => setNewAuditOpen(true)}
+          />
+        ) : (
+          <Workspace
+            job={job}
+            isLoading={details.isLoading}
+            isError={details.isError}
+            onRetry={() => details.refetch()}
+          />
+        )}
       </Box>
+
+      <NewAuditModal
+        opened={newAuditOpen}
+        onClose={() => setNewAuditOpen(false)}
+        onCreated={setSelectedJobId}
+      />
     </Box>
   )
 }

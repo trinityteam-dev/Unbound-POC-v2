@@ -1,39 +1,39 @@
 import { createTheme, type MantineColorsTuple } from '@mantine/core'
 
-// Teal Graphite palette (Direction C). Teal primary #0D9488 at index 6,
-// with amber as the accent.
+// SuperRecords-aligned palette. Brand green primary #00AF5A at index 6,
+// with peach as the warm accent and navy chrome (see global.css).
 const brand: MantineColorsTuple = [
-  '#e6f6f4',
-  '#c0ebe6',
-  '#8edcd4',
-  '#56c9bd',
-  '#2bb4a6',
-  '#14a392',
-  '#0d9488', // 6 — primary
-  '#0b7c72',
-  '#09635b',
-  '#064842',
+  '#e7f7ef',
+  '#c2ecd6',
+  '#92ddb6',
+  '#5fcd94',
+  '#33c078',
+  '#13b766',
+  '#00af5a', // 6 — primary (brand green)
+  '#009a4f',
+  '#0c6630', // 8 — dark green text on light
+  '#08491f',
 ]
 
-// Amber accent, anchored on #F59E0B at index 6.
+// Peach accent, anchored on #FFBC7D at index 4 with deeper ochre for text/icons.
 const accent: MantineColorsTuple = [
-  '#fff8ec',
-  '#fde7c3',
-  '#fbd494',
-  '#f9bf5e',
-  '#f7ab33',
-  '#f6a019',
-  '#f59e0b', // 6 — accent
-  '#d4850a',
-  '#a86808',
-  '#7c4d06',
+  '#fff6ec',
+  '#ffe8cf',
+  '#ffd6a8',
+  '#ffc78c',
+  '#ffbc7d', // 4 — brand peach
+  '#f0a157',
+  '#e0871f', // 6 — readable peach-ochre on light
+  '#bf7016',
+  '#94560f',
+  '#6b3d09',
 ]
 
 export const theme = createTheme({
   primaryColor: 'brand',
   primaryShade: 6,
   defaultRadius: 'md',
-  fontFamily: 'Inter, sans-serif',
+  fontFamily: 'Poppins, sans-serif',
   fontFamilyMonospace: 'ui-monospace, SFMono-Regular, Menlo, monospace',
   colors: { brand, accent },
   fontSizes: {

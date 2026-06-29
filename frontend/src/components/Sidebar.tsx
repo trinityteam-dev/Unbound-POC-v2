@@ -1,29 +1,26 @@
-import { useState } from 'react'
 import {
   Box,
-  Button,
   Group,
   Loader,
-  Modal,
-  Select,
   Stack,
   Text,
   UnstyledButton,
 } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
-import { IconChevronRight, IconPlus, IconRefresh } from '@tabler/icons-react'
+import { IconChevronRight, IconHome, IconPlus, IconRefresh } from '@tabler/icons-react'
 import type { Job } from '../api/types'
 import { formatRelativeShort } from '../api/format'
 import { statusDotColor } from '../lib/status'
-import { useCreateJob, useFunds, useJobs } from '../api/hooks'
+import { useJobs } from '../api/hooks'
 import { tokens } from '../theme'
 
-// De-boxed charcoal sidebar (spec §3). The job list is the hero: status dot +
-// fund name, no fills, no outlines. The run-config form is collapsed behind a
-// single "＋ New audit job" row that opens a modal on demand.
+// De-boxed navy sidebar (spec §3). The job list is the hero: status dot +
+// fund name, no fills, no outlines. A "Home" row returns to the landing
+// dashboard; "＋ New audit job" opens the shared run-config modal.
 export interface SidebarProps {
   selectedJobId: string | null
   onSelectJob: (jobId: string) => void
+  onGoHome: () => void
+  onNewAudit: () => void
   width: number
 }
 
@@ -108,96 +105,20 @@ function JobRow({
   )
 }
 
-function NewAuditModal({
-  opened,
-  onClose,
-  onCreated,
-}: {
-  opened: boolean
-  onClose: () => void
-  onCreated: (jobId: string) => void
-}) {
-  const funds = useFunds()
-  const createJob = useCreateJob()
-  const [fundId, setFundId] = useState<string | null>(null)
-  const [jobType, setJobType] = useState<string | null>('Accounting_Audit')
-
-  const fundOptions =
-    funds.data
-      ?.filter((f) => !!f.id)
-      .map((f) => ({ value: f.id, label: f.name ?? f.id })) ?? []
-
-  function handleRun() {
-    if (!fundId || createJob.isPending) return
-    createJob.mutate(
-      { fund_id: fundId, job_type: jobType ?? 'Accounting_Audit' },
-      {
-        onSuccess: (res) => {
-          notifications.show({
-            color: 'teal',
-            title: 'Audit started',
-            message: 'The AI processor is classifying documents.',
-          })
-          setFundId(null)
-          onCreated(res.job_id)
-          onClose()
-        },
-        onError: (err) => {
-          notifications.show({
-            color: 'red',
-            title: 'Could not start audit',
-            message: err instanceof Error ? err.message : 'Unknown error',
-          })
-        },
-      },
-    )
-  }
-
-  return (
-    <Modal opened={opened} onClose={onClose} title="New audit job" centered>
-      <Stack gap="sm">
-        <Select
-          label="Fund"
-          placeholder="Select fund"
-          data={fundOptions}
-          value={fundId}
-          onChange={setFundId}
-          searchable
-          nothingFoundMessage="No funds"
-          disabled={funds.isLoading}
-        />
-        <Select
-          label="Playbook"
-          value={jobType}
-          onChange={setJobType}
-          allowDeselect={false}
-          data={[
-            { value: 'Accounting_Audit', label: 'Accounting & Audit (Full)' },
-            { value: 'Accounting', label: 'Accounting (Limited Ledger)' },
-          ]}
-        />
-        <Button
-          fullWidth
-          mt="xs"
-          color="brand"
-          loading={createJob.isPending}
-          disabled={!fundId}
-          onClick={handleRun}
-        >
-          Run audit pipeline
-        </Button>
-      </Stack>
-    </Modal>
-  )
-}
-
-export function Sidebar({ selectedJobId, onSelectJob, width }: SidebarProps) {
+export function Sidebar({
+  selectedJobId,
+  onSelectJob,
+  onGoHome,
+  onNewAudit,
+  width,
+}: SidebarProps) {
   const jobs = useJobs()
-  const [newOpen, setNewOpen] = useState(false)
+  const homeActive = selectedJobId === null
 
   return (
     <Stack
       gap={0}
+      className="sidebar-panel"
       style={{
         width,
         flexShrink: 0,
@@ -208,9 +129,27 @@ export function Sidebar({ selectedJobId, onSelectJob, width }: SidebarProps) {
         padding: '14px 12px 12px',
       }}
     >
+      {/* Home — returns to the landing dashboard */}
+      <UnstyledButton
+        onClick={onGoHome}
+        className="hover-row"
+        style={{
+          borderRadius: 7,
+          padding: '8px 10px',
+          borderLeft: `2px solid ${homeActive ? tokens.accent : 'transparent'}`,
+        }}
+      >
+        <Group gap={10} wrap="nowrap">
+          <IconHome size={16} color={homeActive ? tokens.accentTeal : 'var(--s2)'} stroke={2.2} />
+          <Text fz={13} fw={homeActive ? 600 : 500} c={homeActive ? tokens.accentTeal : 'var(--s1)'}>
+            Home
+          </Text>
+        </Group>
+      </UnstyledButton>
+
       {/* ＋ New audit job — opens the run-config modal on demand */}
       <UnstyledButton
-        onClick={() => setNewOpen(true)}
+        onClick={onNewAudit}
         className="hover-row"
         style={{ borderRadius: 7, padding: '8px 10px' }}
       >
@@ -280,12 +219,6 @@ export function Sidebar({ selectedJobId, onSelectJob, width }: SidebarProps) {
           </Text>
         </Group>
       </Box>
-
-      <NewAuditModal
-        opened={newOpen}
-        onClose={() => setNewOpen(false)}
-        onCreated={onSelectJob}
-      />
     </Stack>
   )
 }

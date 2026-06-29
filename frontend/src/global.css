@@ -1,81 +1,83 @@
 /* ───────────────────────────────────────────────────────────────────
    Theme tokens (JOB_WORKSPACE_LAYOUT_SPEC §10) — theme-aware.
-   Dark is the default (:root); light overrides via the attribute Mantine
-   sets on <html> when the color scheme flips, so one toggle drives both
-   Mantine internals and these structural tokens.
+   Light is the default (:root) for the SuperRecords-aligned look; dark is
+   the toggle override via the attribute Mantine sets on <html>, so one
+   toggle drives both Mantine internals and these structural tokens.
    ─────────────────────────────────────────────────────────────────── */
 :root {
-  --bg: #0e0f12; /* app canvas / gutter */
-  --pn: #18181b; /* sidebar panel */
-  --sf: #1c1d21; /* details surface */
-  --st: #16171a; /* footer / strip bg */
-  --fd: #121316; /* field / input bg */
+  --bg: #edf0f6; /* app canvas / gutter */
+  --pn: #151b2d; /* navy sidebar + header chrome */
+  --sf: #ffffff; /* details surface */
+  --st: #f7f8fb; /* footer / strip bg */
+  --fd: #ffffff; /* field / input bg */
 
-  --i1: #e7e9ec; /* text primary */
-  --i2: #a6abb3; /* text secondary */
-  --i3: #71767e; /* text tertiary */
-  --i4: #5b6068; /* label faint */
+  --i1: #151b2d; /* text primary (navy) */
+  --i2: #5a6c83; /* text secondary */
+  --i3: #8a93a6; /* text tertiary */
+  --i4: #a9b0bf; /* label faint */
 
-  --ln: rgba(255, 255, 255, 0.07); /* hairline */
-  --l2: rgba(255, 255, 255, 0.12); /* border stronger */
+  --ln: rgba(0, 0, 0, 0.07); /* hairline */
+  --l2: rgba(0, 0, 0, 0.12); /* border stronger */
 
-  --tl: #2dd4bf; /* accent teal (text/active) */
-  --tf: #0d9488; /* teal fill (buttons) */
-  --am: #f59e0b; /* amber (accent/tick/underline) */
-  --bl: #60a5fa; /* blue (processor/banner) */
-  --gr: #34d399; /* success/matched */
-  --yl: #fbbf24; /* warn/unmatched */
-  --rd: #f87171; /* danger/exceptions */
-  --vi: #b8a6f5; /* violet (playbook/config) */
+  --tl: #0c6630; /* dark green (text/active on light) */
+  --tf: #00af5a; /* brand-green fill (buttons) */
+  --am: #e0871f; /* peach-ochre accent (tick/underline/coin) */
+  --bl: #4f69a3; /* secondary blue (processor/banner) */
+  --gr: #00af5a; /* success/matched (brand green) */
+  --yl: #b7791f; /* warn/unmatched */
+  --rd: #dc2626; /* danger/exceptions */
+  --vi: #7c3aed; /* violet (playbook/config) */
 
-  --hv: rgba(255, 255, 255, 0.045); /* row hover */
-  --tn: rgba(45, 212, 191, 0.12); /* teal active tint (rail/accounts) */
-  --at: rgba(245, 158, 11, 0.06); /* amber draft tint */
-  --ab: rgba(45, 212, 191, 0.45); /* details-pane accent border */
-  --sc: rgba(45, 212, 191, 0.4); /* scrollbar thumb */
+  --hv: rgba(0, 0, 0, 0.04); /* row hover */
+  --tn: rgba(0, 175, 90, 0.1); /* green active tint (rail/accounts) */
+  --at: rgba(255, 188, 125, 0.16); /* peach draft tint */
+  --ab: rgba(0, 175, 90, 0.45); /* details-pane accent border */
+  --sc: rgba(0, 175, 90, 0.4); /* scrollbar thumb */
 
-  /* Sidebar text on charcoal (white-alpha on dark). */
+  /* Sidebar sits on navy in BOTH themes → light text always. */
   --s1: rgba(255, 255, 255, 0.95);
-  --s2: rgba(255, 255, 255, 0.64);
+  --s2: rgba(255, 255, 255, 0.66);
   --s3: rgba(255, 255, 255, 0.46);
 
   --canvas: var(--bg);
 }
 
-:root[data-mantine-color-scheme='light'] {
-  --bg: #e7e9ed;
-  --pn: #f3f4f6;
-  --sf: #ffffff;
-  --st: #f7f8fa;
-  --fd: #ffffff;
+/* The sidebar panel is dark navy regardless of theme. Scope its hover + active
+   tints to bright-on-dark so rows read correctly against the navy. */
+.sidebar-panel {
+  --hv: rgba(255, 255, 255, 0.06);
+  --tl: #22e07f; /* bright green: active job text on navy */
+}
 
-  --i1: #1a1c1f;
-  --i2: #52585f;
-  --i3: #868c94;
-  --i4: #a0a6ad;
+:root[data-mantine-color-scheme='dark'] {
+  --bg: #0e0f12;
+  --pn: #151b2d;
+  --sf: #1c1d21;
+  --st: #16171a;
+  --fd: #121316;
 
-  --ln: rgba(0, 0, 0, 0.09);
-  --l2: rgba(0, 0, 0, 0.15);
+  --i1: #e7e9ec;
+  --i2: #a6abb3;
+  --i3: #71767e;
+  --i4: #5b6068;
 
-  --tl: #0d9488;
-  --tf: #0d9488;
-  --am: #c77c09;
-  --bl: #2f6fd0;
-  --gr: #16a34a;
-  --yl: #b7791f;
-  --rd: #dc2626;
-  --vi: #7c3aed;
+  --ln: rgba(255, 255, 255, 0.07);
+  --l2: rgba(255, 255, 255, 0.12);
 
-  --hv: rgba(0, 0, 0, 0.04);
-  --tn: rgba(13, 148, 136, 0.1);
-  --at: rgba(245, 158, 11, 0.12);
-  --ab: rgba(13, 148, 136, 0.5);
-  --sc: rgba(13, 148, 136, 0.4);
+  --tl: #22e07f;
+  --tf: #00af5a;
+  --am: #ffbc7d;
+  --bl: #60a5fa;
+  --gr: #34d399;
+  --yl: #fbbf24;
+  --rd: #f87171;
+  --vi: #b8a6f5;
 
-  /* Sidebar text on a light charcoal panel — dark greys for contrast. */
-  --s1: #1a1c1f;
-  --s2: #52585f;
-  --s3: #868c94;
+  --hv: rgba(255, 255, 255, 0.045);
+  --tn: rgba(0, 175, 90, 0.14);
+  --at: rgba(255, 188, 125, 0.08);
+  --ab: rgba(34, 224, 127, 0.45);
+  --sc: rgba(34, 224, 127, 0.4);
 }
 
 html,

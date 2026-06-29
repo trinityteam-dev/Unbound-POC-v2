@@ -153,7 +153,7 @@ export function WorkspaceHeader({
                     gap: 5,
                     padding: '9px 10px',
                     border: 'none',
-                    borderBottom: `2px solid ${active ? tokens.accent : 'transparent'}`,
+                    borderBottom: `2px solid ${active ? tokens.accentTeal : 'transparent'}`,
                     marginBottom: -1,
                     background: 'transparent',
                     color: active ? tokens.accentTeal : tokens.textTertiary,
