@@ -643,14 +643,18 @@ You must return a valid JSON object matching this structure:
                 for page_idx in range(num_pages):
                     page = reader.pages[page_idx]
                     page_text = page.extract_text() or ""
-                    
-                    if len(page_text.strip()) < 30:
+
+                    # OCR this page when its text is sparse OR when we have not yet
+                    # established which account this statement belongs to. The second
+                    # condition ensures early pages (e.g. cover/summary pages) with
+                    # modest embedded label text still get OCR'd so the account number
+                    # can be discovered before any pages are bucketed as "unknown".
+                    if len(page_text.strip()) < 80 or current_acc == "unknown":
                         try:
-                            # Render single page to run OCR
                             page_text = ocr_pdf_single_page(filepath, page_idx, scratch_dir)
                         except Exception:
                             pass
-                            
+
                     # Normalize text to match accounts
                     norm_text = page_text.replace(" ", "").replace("-", "")
                     
@@ -682,6 +686,20 @@ You must return a valid JSON object matching this structure:
                         "original_name": filename
                     })
                 
+                # If only one account was discovered and some pages fell into the
+                # "unknown" bucket (e.g. a cover or summary page whose embedded text
+                # had no account number), absorb those pages into the sole account.
+                # Avoids generating a spurious second "Bank Statement.pdf" file.
+                discovered_accounts = [
+                    acc for acc in bank_account_pages
+                    if acc != "unknown" and bank_account_pages[acc]
+                ]
+                if len(discovered_accounts) == 1 and bank_account_pages.get("unknown"):
+                    sole_acc = discovered_accounts[0]
+                    bank_account_pages[sole_acc].extend(bank_account_pages["unknown"])
+                    bank_account_pages[sole_acc].sort(key=lambda p: p["page_num"])
+                    bank_account_pages["unknown"] = []
+
                 processed_files.append({
                     "original_name": filename,
                     "classified_name": "[Split and grouped by account]",
