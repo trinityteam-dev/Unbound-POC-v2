@@ -408,48 +408,58 @@ def determine_target_filename(classification, original_name):
         return f"Unclassified_{original_name}"
         
     category_clean = category.strip()
-    
-    if category_clean == "Audit Invoice":
-        return "Audit Invoice.pdf"
-    elif category_clean.startswith("Accountancy"):
-        amount = classification.get("amount")
+
+    sub_type = (classification.get("sub_type") or "").strip()
+    amount = classification.get("amount")
+    date_val = classification.get("date")
+    account_number = classification.get("account_number")
+    member_name = (classification.get("member_name") or "").strip()
+
+    def _san(s):
+        # Drop characters unsafe in filenames. Note "/" -> "_" so names like
+        # "ASIC Statement/Extract" do not create spurious sub-directories.
+        return "".join(c if c.isalnum() or c in " -_$.()&" else "_" for c in s).strip()
+
+    # Bank statements normally take the dedicated split/group path; this branch
+    # only covers the rare case a bank doc reaches the direct-rename path.
+    if category_clean == "Bank & Term Deposits":
+        if account_number:
+            return f"Bank Statement - {str(account_number).strip()}.pdf"
+        return "Bank & Term Deposits.pdf"
+
+    if category_clean == "Other Expenses":
+        label = sub_type or "Other Expenses"
         if amount:
             amount_str = str(amount).strip().replace("$", "")
-            return f"Accountancy - ${amount_str}.pdf"
-        return "Accountancy.pdf"
-    elif category_clean == "Tax Statement Metrics":
-        return "Tax Statement Metrics.pdf"
-    elif category_clean == "Income Tax":
-        return "Income Tax.pdf"
-    elif category_clean == "Income Tax Activity":
-        return "Income Tax Activity.pdf"
-    elif category_clean.startswith("Bank Statement"):
-        account_number = classification.get("account_number")
-        if account_number:
-            acc_clean = str(account_number).strip()
-            return f"Bank Statement - {acc_clean}.pdf"
-        return "Bank Statement.pdf"
-    elif category_clean.startswith("Portfolio Valuation"):
-        date_val = classification.get("date")
+            return _san(f"Other Expenses - {label} - ${amount_str}") + ".pdf"
+        return _san(f"Other Expenses - {label}") + ".pdf" if sub_type else "Other Expenses.pdf"
+
+    if category_clean in (
+        "Wrap - Annual Transaction Listing and Portfolio Valuation Report",
+        "Broker - Transaction Listing and Portfolio Valuation Report",
+    ):
         if date_val:
-            date_clean = str(date_val).strip()
-            return f"Portfolio Valuation at {date_clean}.pdf"
-        return "Portfolio Valuation.pdf"
-    elif category_clean == "Ordr Mint Transation Listing":
-        return "Ordr Mint Transation Listing.pdf"
-    elif category_clean == "F25 Periodic Statement Metrics":
-        return "F25 Periodic Statement Metrics.pdf"
-    elif category_clean == "Delisted DSE":
-        return "Delisted DSE.pdf"
-    elif category_clean == "Total Super annuation balance":
-        return "Total Super annuation balance.pdf"
-    elif category_clean == "Trust Deed":
-        return "Trust Deed.pdf"
-    elif category_clean == "ATO Trustee Declaration":
-        return "ATO Trustee Declaration.pdf"
-    else:
-        sanitized_cat = "".join([c if c.isalnum() or c in " -_$" else "_" for c in category_clean])
-        return f"{sanitized_cat}.pdf"
+            return _san(f"{category_clean} at {str(date_val).strip()}") + ".pdf"
+        return _san(category_clean) + ".pdf"
+
+    if category_clean == "Contribution":
+        if member_name:
+            return _san(f"Contribution - {member_name}") + ".pdf"
+        return "Contribution.pdf"
+
+    if category_clean == "Benefit paid/transferred":
+        label = sub_type or member_name
+        return _san(f"Benefit paid transferred - {label}") + ".pdf" if label else "Benefit paid transferred.pdf"
+
+    # Rolled-up categories: append the specific sub_type for readability + so the
+    # reconciliation file-matcher can disambiguate within the parent category.
+    if category_clean in ("ATO Accounts", "Unlisted Trust or Company", "Investment in Real Property", "Derivatives"):
+        return _san(f"{category_clean} - {sub_type}") + ".pdf" if sub_type else _san(category_clean) + ".pdf"
+
+    # Generic: any other category -> "<Category>.pdf" (with sub_type when present).
+    if sub_type:
+        return _san(f"{category_clean} - {sub_type}") + ".pdf"
+    return _san(category_clean) + ".pdf"
 
 def get_unique_filepath(dest_dir, filename):
     name, ext = os.path.splitext(filename)
@@ -493,44 +503,50 @@ def classify_papers(input_dir, workpapers_dir, fund_profile, api_key, scratch_di
         update_progress(None, f"Skipping non-PDF file: {fn}")
 
     # Build playbook-specific categories and keywords
+    # Category -> scope playbook (prose) resolved from playbook_config.json by app.py
+    # and injected as fund_profile["keywords"][job_type]. Values are opaque scope text,
+    # NOT comma-keyword tokens (see docs/CLASSIFICATION_PLAYBOOK_REFACTOR.md).
     keywords_config = fund_profile.get("keywords", {}).get(job_type, {})
     if not keywords_config:
-        # Fallback to defaults
+        # Minimal safety net only — the authoritative taxonomy lives in
+        # playbook_config.json. This should not normally be reached.
         keywords_config = {
-            "Audit Invoice": "Audit fee, invoice, auditor engagement",
-            "Accountancy - $XXX": "Accountancy fee, invoice, accounting services",
-            "Tax Statement Metrics": "Annual tax statement, trust distribution, Metrics",
-            "Income Tax": "Income tax assessment, refund, ATO credit",
-            "Income Tax Activity": "ICA, Integrated Client Account portal, Activity Statement",
-            "Bank Statement - [Account no ]": "Bank statement CBA account transaction listing",
-            "Portfolio Valuation at DD.MM.YY": "Portfolio valuation holding list market value",
-            "Ordr Mint Transation Listing": "Ord Minnett broker ledger transactions",
-            "F25 Periodic Statement Metrics": "Annual periodic statement Metrics Master Income",
-            "Delisted DSE": "Delisted securities, AMP, TSB balance",
-            "Total Super annuation balance": "ATO Total Superannuation Balance statement, TSB"
+            "Bank & Term Deposits": "Periodic bank statements, term deposits and bank interest reports.",
+            "Wrap - Annual Tax Statement Report": "Platform/wrap annual tax statement (income, distributions, CGT).",
+            "Wrap - Annual Transaction Listing and Portfolio Valuation Report": "Platform investor statement: holdings/valuation and/or transactions.",
+            "ATO Accounts": "ATO income tax / integrated client / PAYG / GST / TSB / TBC documents.",
+            "Contribution": "Member contribution evidence, screens and forms.",
+            "Other Expenses": "Accounting/audit/adviser fee invoices, audit shield, ASIC and management fees.",
         }
-        if job_type == "Accounting":
-            # Remove audit-specific files for accounting playbook
-            for key in ["Audit Invoice", "Trust Deed", "ATO Trustee Declaration", "Total Super annuation balance"]:
-                keywords_config.pop(key, None)
 
     categories_description = "\n".join(
-        [f"- {cat}: Matches keywords or rules: {rules}" for cat, rules in keywords_config.items()]
+        [f"- {cat}: {scope}" for cat, scope in keywords_config.items()]
     )
 
-    system_prompt = f"""You are an AI assistant specialized in Australian income tax auditing and Self-Managed Superannuation Fund (SMSF) work paper filing.
-Your task is to classify a document's extracted text or OCR text for the fund '{fund_profile.get('name')}' based on the '{job_type}' playbook.
+    system_prompt = f"""You are an AI assistant specialised in Australian income tax auditing and Self-Managed Superannuation Fund (SMSF) work-paper filing.
+Classify a single document for the fund '{fund_profile.get('name')}' using the '{job_type}' playbook. The text may be noisy or partial OCR.
+
+Classify by the document's PURPOSE and ISSUER, not by isolated keywords. Choose EXACTLY ONE category. Apply these precedence rules in order:
+1. PRIOR-YEAR OVERRIDE: a finalised/signed prior-year deliverable, or content relating ONLY to a year before the audit year, => "Prior Year Documents". EXCEPTION: live ATO/registry/super snapshots that merely list prior-year transactions or a prior-30-June balance are classified by type (=> "ATO Accounts"). Future-year documents are classified by type.
+2. ISSUER ROUTING: a wrap/platform-issued document (HUB24, UBS, Macquarie Wrap, BT Panorama) => one of the "Wrap -" categories (transactions+valuation / tax statement / Type 2 report); a broker consolidated pack (e.g. Ord Minnett) => "Broker - Transaction Listing and Portfolio Valuation Report"; a single-holding document => the specific direct category (Dividend Statement / Distribution Statement / Annual Tax Statement / Trade Contract / HIN Holding Statement / Chess Holding).
+3. NAMING TRAP: an "Activity Statement" or "Statement of Account" issued by a private accountant/firm is NOT an ATO document => "Other Expenses"; only ATO-issued income-tax/integrated/activity/PAYG/GST documents => "ATO Accounts".
+4. CONTRIBUTIONS vs ATO ACCOUNTS: decide by the document's HEADLINE SUBJECT / main table, using the title and filename. (a) If the title or main table is "Total Superannuation Balance" / TSB / TBC => "ATO Accounts", EVEN THOUGH a TSB report always references contribution caps and eligibility — that does NOT make it a contribution document. (b) If the title or main table is concessional / non-concessional CONTRIBUTIONS (amounts received and cap usage) => "Contribution", EVEN THOUGH it shows the member's TSB. (c) When unsure, the document title/filename wins: "...Total Superannuation Balance" => ATO Accounts; "...Concessional/Non-concessional Contributions" => Contribution. Other ATO income-tax / integrated-client / PAYG / GST account documents => "ATO Accounts".
+5. INSURANCE: a member life/TPD/income-protection premium => "Benefit paid/transferred"; property insurance => "Investment in Real Property".
+6. LENDER vs BORROWER: the fund BORROWS (bare trust, limited-recourse loan) => "LRBA"; the fund LENDS => "Loan Given by the SMSF".
+If nothing fits with reasonable confidence, choose "Unclassified" — never force-fit.
 
 You must choose EXACTLY one of the active playbook categories below:
 {categories_description}
 
 You must return a valid JSON object matching this structure:
 {{
-  "category": "The exact category name chosen from the list above.",
-  "account_number": "Extract the bank account number (usually 8-15 digits, strip formatting) if the category is a Bank Statement, else null.",
-  "amount": "Extract the invoice total amount (e.g. '270.41') if the category is Accountancy or Audit Invoice, else null.",
-  "date": "Extract the valuation date and format it as DD.MM.YY (e.g., '30.06.25') if the category is a Portfolio Valuation, else null.",
-  "reasoning": "A concise explanation of why this document matches the chosen category and playbook rules."
+  "category": "The exact category name chosen from the list above, or 'Unclassified'.",
+  "sub_type": "The specific document nature within the category (e.g. 'Copy of share certificate', 'ATO integrated client account', 'Monthly Rental Statement', 'Audit fee invoice'), else null.",
+  "account_number": "Extract the bank account number (8-15 digits, strip formatting) if the category is 'Bank & Term Deposits', else null.",
+  "amount": "Extract the total amount if the category is 'Other Expenses' (invoice/fee total), 'Contribution' (contribution amount), or 'Benefit paid/transferred' (benefit/premium amount), else null.",
+  "date": "Extract the valuation 'as at' date as DD.MM.YY (e.g., '30.06.25') for the Wrap/Broker transaction-and-valuation reports, or the period-end date for the Wrap/standalone Annual Tax Statement, else null.",
+  "member_name": "Extract the member / life-insured name if the category is 'Contribution', 'Benefit paid/transferred', or an ATO TSB/TBC document, else null.",
+  "reasoning": "A concise explanation of why this document matches the chosen category, sub_type and playbook rules. If 'Unclassified', name the closest categories and why they were rejected."
 }}
 """
 
@@ -617,10 +633,12 @@ You must return a valid JSON object matching this structure:
         # (a) the LLM category says so, OR
         # (b) the source filename explicitly contains both "bank" and "statement"
         #     — guards against misclassification when document body text is sparse.
+        _cat_lower = category.lower()
         is_bank_statement = (
-            "bank statement" in category.lower()
+            "bank & term deposits" in _cat_lower
+            or "bank statement" in _cat_lower  # legacy category name, kept for back-compat
             or (
-                "statement" in category.lower()
+                "statement" in _cat_lower
                 and ("statements" in _fn_lower or any(acc in filename for acc in bank_account_pages.keys()))
             )
             or ("bank" in _fn_lower and "statement" in _fn_lower)
@@ -704,9 +722,11 @@ You must return a valid JSON object matching this structure:
                     "original_name": filename,
                     "classified_name": "[Split and grouped by account]",
                     "category": "Bank Statement (Grouped)",
+                    "sub_type": "Bank statement",
                     "account_number": current_acc if current_acc != "unknown" else None,
                     "amount": None,
                     "date": None,
+                    "member_name": None,
                     "reasoning": f"Parsed {num_pages} pages and grouped them under account statements."
                 })
                 update_progress(percent, f"Split and grouped pages of statement: {filename}")
@@ -727,9 +747,11 @@ You must return a valid JSON object matching this structure:
                     "original_name": filename,
                     "classified_name": os.path.basename(dest_filepath),
                     "category": category,
+                    "sub_type": classification.get("sub_type"),
                     "account_number": classification.get("account_number"),
                     "amount": classification.get("amount"),
                     "date": classification.get("date"),
+                    "member_name": classification.get("member_name"),
                     "reasoning": reasoning
                 })
                 update_progress(percent, f"Classified and copied: {filename} -> {os.path.basename(dest_filepath)}")
@@ -810,9 +832,11 @@ You must return a valid JSON object matching this structure:
                 "original_name": f"[Grouped pages from {len(pages)} sources]",
                 "classified_name": target_filename,
                 "category": f"Bank Statement - {acc_num}",
+                "sub_type": "Bank statement",
                 "account_number": acc_num if acc_num != "unknown" else None,
                 "amount": None,
                 "date": None,
+                "member_name": None,
                 "reasoning": f"Merged pages from: {source_detail}"
             })
             update_progress(63, f"Compiled statement file: {target_filename} from pages: {source_detail}")
@@ -827,74 +851,59 @@ You must return a valid JSON object matching this structure:
     return processed_files, unprocessed_files
 
 def fallback_classify_by_keywords(filename, text, keywords_config, fund_profile):
-    """Fallback rule-based classifier in case LLM query fails."""
+    """Fallback rule-based classifier in case the LLM query fails. Maps documents to
+    the current rolled-up taxonomy (see docs/CLASSIFICATION_PLAYBOOK_REFACTOR.md).
+    Only fires categories that are active in the resolved playbook for this job."""
     fn_lower = filename.lower()
     text_lower = text.lower()
-    
-    # Try to match categories by simple keywords
+    active = set(keywords_config.keys())
+
+    def pick(cat):
+        return cat if cat in active else None
+
+    # (category, predicate) — first match wins; order = most specific first.
+    rules = [
+        ("Bank & Term Deposits", ("bank" in fn_lower and "statement" in fn_lower) or "term deposit" in text_lower or "interest report" in text_lower),
+        ("Wrap - Annual Tax Statement Report", ("hub24" in fn_lower or "wrap" in fn_lower or "ubs" in text_lower) and ("tax statement" in fn_lower or "tax statement" in text_lower or "tax guide" in text_lower)),
+        ("Wrap - Annual Transaction Listing and Portfolio Valuation Report", ("hub24" in fn_lower or "wrap" in fn_lower) and ("investor statement" in text_lower or "valuation" in fn_lower or "transaction" in fn_lower)),
+        ("Broker - Transaction Listing and Portfolio Valuation Report", "ord minnett" in text_lower or "ordmint" in fn_lower or "broker" in fn_lower),
+        ("ASIC Statement/Extract", "asic" in fn_lower or ("company statement" in text_lower and "asic" in text_lower)),
+        ("ATO Accounts", "ica" in fn_lower or "integrated client" in text_lower or "income tax account" in text_lower or "activity statement" in text_lower or "tsb" in fn_lower or "superannuation balance" in text_lower or "payg" in text_lower),
+        ("Contribution", "contribution" in fn_lower or "contribution" in text_lower),
+        ("Annual Tax Statement", "tax statement" in fn_lower or ("amit" in text_lower or "amma" in text_lower)),
+        ("Distribution Statement", "distribution" in fn_lower or "distribution statement" in text_lower),
+        ("Dividend Statement", "dividend" in fn_lower or "dividend statement" in text_lower),
+        ("Unlisted Trust or Company", "share certificate" in fn_lower or "unit certificate" in text_lower or "capital return" in fn_lower),
+        ("Benefit paid/transferred", "rollover" in text_lower or "pension" in fn_lower or "insurance premium" in text_lower),
+        ("Trust Deed", "trust deed" in fn_lower or "trust deed" in text_lower),
+        ("Other Expenses", "invoice" in fn_lower or "invoice" in text_lower or "fee" in fn_lower or "audit shield" in text_lower),
+    ]
+
     best_cat = None
-    for cat in keywords_config.keys():
-        cat_lower = cat.lower()
-        if "audit invoice" in cat_lower and ("audit" in fn_lower or ("audit" in text_lower and "invoice" in text_lower)):
-            best_cat = cat
-            break
-        elif "accountancy" in cat_lower and ("accountancy" in fn_lower or "ri34193" in fn_lower or ("accountancy" in text_lower and "invoice" in text_lower)):
-            best_cat = cat
-            break
-        elif "tax statement" in cat_lower and ("tax statement" in fn_lower or "metrics" in fn_lower and "tax" in text_lower):
-            best_cat = cat
-            break
-        elif "periodic statement" in cat_lower and ("periodic" in fn_lower or "f25" in fn_lower or "periodic statement" in text_lower):
-            best_cat = cat
-            break
-        elif "portfolio valuation" in cat_lower and ("portfolio" in fn_lower or "valuation" in fn_lower or "portfolio valuation" in text_lower):
-            best_cat = cat
-            break
-        elif "bank statement" in cat_lower and ("statement" in fn_lower or "bank" in fn_lower or "statements" in fn_lower):
-            best_cat = cat
-            break
-        elif "income tax activity" in cat_lower and ("ica" in fn_lower or "activity" in fn_lower or "integrated client" in text_lower):
-            best_cat = cat
-            break
-        elif "income tax" in cat_lower and ("ita" in fn_lower or "income tax account" in text_lower):
-            best_cat = cat
-            break
-        elif "total super" in cat_lower and ("tsb" in fn_lower or "superannuation balance" in text_lower):
+    for cat, matched in rules:
+        if matched and pick(cat):
             best_cat = cat
             break
 
     if not best_cat:
-        # Default fallback
-        best_cat = list(keywords_config.keys())[0]
+        best_cat = next(iter(active)) if active else "Unclassified"
 
-    # Try to extract numbers
+    # Best-effort field extraction
     account_number = None
-    if "bank statement" in best_cat.lower() or "statement" in best_cat.lower():
+    if best_cat == "Bank & Term Deposits":
         for acc in fund_profile.get("bank_accounts", []):
             acc_num = acc["number"].replace(" ", "").replace("-", "")
-            if acc_num in text.replace(" ", "").replace("-", ""):
+            if acc_num and acc_num in text.replace(" ", "").replace("-", ""):
                 account_number = acc_num
                 break
-                
-    amount = None
-    if "invoice" in best_cat.lower() or "accountancy" in best_cat.lower():
-        if "270.41" in text:
-            amount = "270.41"
-        elif "517.00" in text:
-            amount = "517.00"
-
-    date = None
-    if "portfolio valuation" in best_cat.lower():
-        if "30.06.25" in text or "30 June 2025" in text:
-            date = "30.06.25"
-        elif "01.07.24" in text or "01 July 2024" in text:
-            date = "01.07.24"
 
     return {
         "category": best_cat,
+        "sub_type": None,
         "account_number": account_number,
-        "amount": amount,
-        "date": date,
+        "amount": None,
+        "date": None,
+        "member_name": None,
         "reasoning": "Classified using fallback keyword rules matching metadata."
     }
 
@@ -1129,23 +1138,29 @@ JSON Schema:
                     if acc_num_clean in name or (len(acc_num_clean) > 8 and acc_num_clean[-8:] in name):
                         details["files"] = [f for f in available_files if acc_num_clean in f]
                 if "Other Cash Accounts" in name or "Other Cash" in name:
-                    details["files"] = [f for f in available_files if "Ordr Mint" in f or "ord_mint" in f.lower()]
+                    # Broker cash now files under "Broker - ...". Legacy "Ordr Mint" kept.
+                    details["files"] = [f for f in available_files if f.startswith("Broker") or "Ordr Mint" in f or "ord_mint" in f.lower()]
             elif cat == "Listed Securities & Portfolios":
+                # New filenames: "Wrap - ... Portfolio Valuation Report ...",
+                # "Broker - ... Portfolio Valuation Report ...". Legacy names kept.
                 if "Portfolio Valuations" in name:
                     details["files"] = [f for f in available_files if "Portfolio Valuation" in f]
                 elif "Wrap Portfolio Reports" in name:
-                    details["files"] = [f for f in available_files if "F25 Periodic" in f]
+                    details["files"] = [f for f in available_files if f.startswith("Wrap") or "F25 Periodic" in f]
                 elif "Broker Transactions" in name:
-                    details["files"] = [f for f in available_files if "Ordr Mint" in f]
+                    details["files"] = [f for f in available_files if f.startswith("Broker") or "Ordr Mint" in f]
                 elif "Tax Statements" in name:
-                    details["files"] = [f for f in available_files if "Tax Statement" in f or "Income Tax.pdf" in f]
+                    details["files"] = [f for f in available_files if "Tax Statement" in f or "ATO Accounts" in f or "Income Tax.pdf" in f]
             elif cat == "Current Tax Assets/Liabilities":
-                details["files"] = [f for f in available_files if "ICA" in f or "ITA" in f or "Income Tax Activity" in f]
+                # ATO income-tax / integrated-client accounts now roll up to "ATO Accounts".
+                details["files"] = [f for f in available_files if "ATO Accounts" in f or "ICA" in f or "ITA" in f or "Income Tax Activity" in f]
             elif cat == "Other Expenses":
+                # Accounting/audit/adviser fees now roll up to "Other Expenses - <sub_type>".
+                # sub_type keyword in the filename disambiguates accountancy vs audit.
                 if "Accountancy" in name:
-                    details["files"] = [f for f in available_files if "Accountancy" in f or "RI34193" in f]
+                    details["files"] = [f for f in available_files if (("Other Expenses" in f and "Audit" not in f) or "Accountancy" in f or "RI34193" in f)]
                 elif "Audit" in name:
-                    details["files"] = [f for f in available_files if "Audit Invoice" in f]
+                    details["files"] = [f for f in available_files if (("Other Expenses" in f and "Audit" in f) or "Audit Invoice" in f)]
             
             # Auto-verify if files matches
             if details["files"]:
@@ -1547,6 +1562,8 @@ def build_reconciliation_prompt(phase2_context, transactions_by_account, scratch
             doc_text = _extract_supporting_doc_text(doc_path, scratch_dir)
             if not doc_text:
                 continue
+            # Holdings extraction fires for any valuation-bearing report (the Wrap/
+            # Broker "... Portfolio Valuation Report" categories, or the legacy name).
             if "Portfolio Valuation" in doc_category:
                 doc_text = _extract_portfolio_holdings(doc_text, doc_name)
             if doc_text:

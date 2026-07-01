@@ -1,17 +1,9 @@
 import { ActionIcon, Tooltip, useMantineColorScheme } from '@mantine/core'
-import { IconChecks, IconMoon, IconSparkles, IconSun } from '@tabler/icons-react'
+import { IconMoon, IconSparkles, IconSun } from '@tabler/icons-react'
 
-// App top bar (spec §2), SuperRecords-aligned: navy chrome, BeFree large + bold
-// on the left, the product title centered with the "A" and "i" letters enlarged
-// in bright green so they read as A·I — signalling AI as the lever of the app.
-const NAVY = '#151b2d'
-const GREEN = '#00af5a'
-const AI_GREEN = '#22e07f' // brighter green for legibility on navy
-
-// One highlighted letter ("A" or "i"), sized up and weighted to stand out.
-function Ai({ children }: { children: string }) {
+function Ai({ children, color }: { children: string; color: string }) {
   return (
-    <span style={{ fontSize: 33, fontWeight: 800, color: AI_GREEN, lineHeight: 0 }}>
+    <span style={{ fontSize: 33, fontWeight: 800, color, lineHeight: 0 }}>
       {children}
     </span>
   )
@@ -20,6 +12,19 @@ function Ai({ children }: { children: string }) {
 export function AppHeader() {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme()
   const dark = colorScheme === 'dark'
+
+  // Header is always light so the logo (blue bird + dark "free" text) reads cleanly.
+  // Light mode: pure white. Dark mode: a cool blue-grey that keeps dark text legible
+  // while feeling distinct from the white light-mode header.
+  const headerBg     = dark ? '#dce4f0' : '#ffffff'
+  const headerBorder = dark ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.08)'
+  const titleColor   = '#151b2d'                   // navy on both light backgrounds
+  const titleDim     = '#8a93a6'
+  const aiColor      = '#00875a'                   // readable dark green on light bg
+  const chipBorder   = 'rgba(0,135,90,0.4)'
+  const avatarBg     = dark ? '#bccadf' : '#e8edf5'
+  const avatarText   = '#2a3a5c'
+  const toggleColor  = 'rgba(0,0,0,0.45)'
 
   return (
     <div
@@ -30,32 +35,20 @@ export function AppHeader() {
         columnGap: 16,
         height: 64,
         padding: '0 24px',
-        background: NAVY,
+        background: headerBg,
+        borderBottom: `1px solid ${headerBorder}`,
       }}
     >
-      {/* Left — company brand, large and bold */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 13, justifySelf: 'start' }}>
-        <div
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: 12,
-            background: GREEN,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            flexShrink: 0,
-          }}
-        >
-          <IconChecks size={23} stroke={2.2} />
-        </div>
-        <span style={{ fontSize: 27, fontWeight: 800, color: '#fff', letterSpacing: 0.2 }}>
-          BeFree
-        </span>
+      {/* Left — logo sits directly on the light header, no container needed */}
+      <div style={{ justifySelf: 'start' }}>
+        <img
+          src="/befree-logo.png"
+          alt="BeFree"
+          style={{ height: 48, width: 'auto', display: 'block' }}
+        />
       </div>
 
-      {/* Center — product title, AI letters standing out */}
+      {/* Center — product title */}
       <div
         style={{
           justifySelf: 'center',
@@ -65,13 +58,13 @@ export function AppHeader() {
           whiteSpace: 'nowrap',
           fontSize: 21,
           fontWeight: 500,
-          color: '#eef1f7',
+          color: titleColor,
           letterSpacing: 0.3,
         }}
       >
-        SMSF&nbsp;<Ai>A</Ai>ccount<Ai>i</Ai>ng&nbsp;
-        <span style={{ color: '#5a6c83', fontWeight: 400 }}>&amp;</span>
-        &nbsp;<Ai>A</Ai>ud<Ai>i</Ai>t
+        SMSF&nbsp;<Ai color={aiColor}>A</Ai>ccount<Ai color={aiColor}>i</Ai>ng&nbsp;
+        <span style={{ color: titleDim, fontWeight: 400 }}>&amp;</span>
+        &nbsp;<Ai color={aiColor}>A</Ai>ud<Ai color={aiColor}>i</Ai>t
       </div>
 
       {/* Right — AI cue, theme toggle, avatar */}
@@ -83,8 +76,8 @@ export function AppHeader() {
             gap: 5,
             fontSize: 11,
             fontWeight: 500,
-            color: AI_GREEN,
-            border: `1px solid rgba(34, 224, 127, 0.4)`,
+            color: aiColor,
+            border: `1px solid ${chipBorder}`,
             padding: '4px 10px',
             borderRadius: 999,
           }}
@@ -101,9 +94,9 @@ export function AppHeader() {
             aria-label="Toggle theme"
           >
             {dark ? (
-              <IconSun size={17} color="rgba(255,255,255,0.7)" />
+              <IconSun size={17} color={toggleColor} />
             ) : (
-              <IconMoon size={17} color="rgba(255,255,255,0.7)" />
+              <IconMoon size={17} color={toggleColor} />
             )}
           </ActionIcon>
         </Tooltip>
@@ -112,8 +105,8 @@ export function AppHeader() {
             width: 30,
             height: 30,
             borderRadius: '50%',
-            background: '#2a3450',
-            color: '#cfd6e6',
+            background: avatarBg,
+            color: avatarText,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

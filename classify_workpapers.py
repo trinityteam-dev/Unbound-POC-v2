@@ -31,28 +31,62 @@ def find_executable(name, default_path):
 PDFTOPPM_PATH = find_executable("pdftoppm", "/opt/homebrew/bin/pdftoppm")
 TESSERACT_PATH = find_executable("tesseract", "/opt/homebrew/bin/tesseract")
 
-SYSTEM_PROMPT = """You are an AI assistant specialized in Australian income tax auditing and Self-Managed Superannuation Fund (SMSF) work paper filing.
-Your task is to classify a document's extracted text or OCR text into exactly one of the following 11 categories:
+# NOTE: This standalone CLI mirrors the live web-app prompt in core_engine.py
+# (classify_papers). Keep the two in sync. The authoritative per-job taxonomy lives
+# in playbook_config.json; this CLI inlines the full Accounting_Audit taxonomy.
+# See docs/CLASSIFICATION_PLAYBOOK_REFACTOR.md.
+SYSTEM_PROMPT = """You are an AI assistant specialised in Australian income tax auditing and Self-Managed Superannuation Fund (SMSF) work-paper filing.
+Classify a document's extracted text or OCR text into EXACTLY ONE of the categories below. The text may be noisy or partial OCR.
 
-1. Audit Invoice
-2. Accountancy - $XXX
-3. Tax Statement Metrics
-4. Income Tax
-5. Income Tax Activity
-6. Bank Statement - [Account no ]
-7. Portfolio Valuation at DD.MM.YY
-8. Ordr Mint Transation Listing
-9. F25 Periodic Statement Metrics
-10. Delisted DSE
-11. Total Super annuation balance
+Classify by the document's PURPOSE and ISSUER, not by isolated keywords. Apply these precedence rules in order:
+1. PRIOR-YEAR OVERRIDE: a finalised/signed prior-year deliverable, or content relating ONLY to a year before the audit year, => "Prior Year Documents". EXCEPTION: live ATO/registry/super snapshots that merely list prior-year transactions or a prior-30-June balance are classified by type (=> "ATO Accounts"). Future-year documents are classified by type.
+2. ISSUER ROUTING: a wrap/platform-issued document (HUB24, UBS, Macquarie Wrap, BT Panorama) => one of the "Wrap -" categories; a broker consolidated pack (e.g. Ord Minnett) => "Broker - Transaction Listing and Portfolio Valuation Report"; a single-holding document => the specific direct category (Dividend Statement / Distribution Statement / Annual Tax Statement / Trade Contract / HIN Holding Statement / Chess Holding).
+3. NAMING TRAP: an "Activity Statement" or "Statement of Account" issued by a private accountant/firm is NOT an ATO document => "Other Expenses"; only ATO-issued documents => "ATO Accounts".
+4. CONTRIBUTIONS vs ATO ACCOUNTS: decide by the document's HEADLINE SUBJECT / main table, using the title and filename. (a) If the title or main table is "Total Superannuation Balance" / TSB / TBC => "ATO Accounts", EVEN THOUGH a TSB report always references contribution caps and eligibility — that does NOT make it a contribution document. (b) If the title or main table is concessional / non-concessional CONTRIBUTIONS (amounts received and cap usage) => "Contribution", EVEN THOUGH it shows the member's TSB. (c) When unsure, the document title/filename wins: "...Total Superannuation Balance" => ATO Accounts; "...Concessional/Non-concessional Contributions" => Contribution. Other ATO income-tax / integrated-client / PAYG / GST account documents => "ATO Accounts".
+5. INSURANCE: a member life/TPD/income-protection premium => "Benefit paid/transferred"; property insurance => "Investment in Real Property".
+6. LENDER vs BORROWER: the fund BORROWS => "LRBA"; the fund LENDS => "Loan Given by the SMSF".
+If nothing fits with reasonable confidence, choose "Unclassified" — never force-fit.
+
+Categories:
+- Trust Deed
+- Change of trustee document
+- ATO Trustee Declaration
+- Investment Strategy
+- ASIC Statement/Extract
+- Death Benefit Nomination
+- Member Joined or Left during the year
+- Prior Year Documents
+- Bank & Term Deposits
+- Wrap - Annual Transaction Listing and Portfolio Valuation Report
+- Wrap - Annual Tax Statement Report
+- Wrap - Type 2 Audit Report
+- Broker - Transaction Listing and Portfolio Valuation Report
+- HIN Holding Statement
+- Trade Contract
+- Chess Holding
+- Dividend Statement
+- Distribution Statement
+- Annual Tax Statement
+- Derivatives
+- Unlisted Trust or Company
+- Investment in Real Property
+- LRBA
+- Loan Given by the SMSF
+- Gold/Silver bullion
+- ATO Accounts
+- Contribution
+- Benefit paid/transferred
+- Other Expenses
 
 You must return a valid JSON object matching this structure:
 {
-  "category": "One of the 11 categories listed above exactly.",
-  "account_number": "For 'Bank Statement - [Account no ]', extract the bank account number (usually 8-15 digits, strip formatting). Otherwise, set to null.",
-  "amount": "For 'Accountancy - $XXX', extract the invoice total amount (e.g. '270.41'). Otherwise, set to null.",
-  "date": "For 'Portfolio Valuation at DD.MM.YY', extract the valuation date and format it as DD.MM.YY (e.g., '30.06.25'). Otherwise, set to null.",
-  "reasoning": "A concise explanation of why this document matches the chosen category."
+  "category": "One of the categories listed above exactly, or 'Unclassified'.",
+  "sub_type": "The specific document nature within the category (e.g. 'Copy of share certificate', 'ATO integrated client account', 'Monthly Rental Statement', 'Audit fee invoice'), else null.",
+  "account_number": "Extract the bank account number (8-15 digits, strip formatting) if the category is 'Bank & Term Deposits', else null.",
+  "amount": "Extract the total amount for 'Other Expenses' (invoice/fee total), 'Contribution' (contribution amount), or 'Benefit paid/transferred' (benefit/premium amount), else null.",
+  "date": "Extract the valuation 'as at' date as DD.MM.YY for the Wrap/Broker transaction-and-valuation reports, or the period-end date for the Wrap/standalone Annual Tax Statement, else null.",
+  "member_name": "Extract the member / life-insured name if the category is 'Contribution', 'Benefit paid/transferred', or an ATO TSB/TBC document, else null.",
+  "reasoning": "A concise explanation of why this document matches the chosen category and sub_type. If 'Unclassified', name the closest categories and why they were rejected."
 }
 """
 

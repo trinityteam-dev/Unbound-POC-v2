@@ -62,16 +62,15 @@ def _union_keywords(base_rule, extra_rule):
     return ", ".join(out)
 
 def resolve_playbook(fund_profile, job_type):
-    """Effective {category: rule} for a fund = global playbook UNION the fund's
-    additive complements. Complements can add keywords to a category and add new
-    categories, but never replace or remove (additive-only — see design doc)."""
+    """Effective {category: scope} for a fund = global playbook UNION the fund's
+    additive complements. Category VALUES are opaque prose scope/playbook text
+    (NOT comma-delimited keyword tokens), so complements override or add at the
+    category level — we do not token-merge the prose (that would corrupt it).
+    Complements can add new categories or replace a category's scope, but a
+    complement that leaves a category absent inherits the global scope."""
     global_cats = (load_playbook() or {}).get(job_type, {}) or {}
     comp = (fund_profile.get("keyword_complements", {}) or {}).get(job_type, {}) or {}
-    categories = list(global_cats.keys()) + [c for c in comp if c not in global_cats]
-    return {
-        cat: _union_keywords(global_cats.get(cat, ""), comp.get(cat, ""))
-        for cat in categories
-    }
+    return {**global_cats, **comp}
 
 def load_jobs():
     if not os.path.exists(JOBS_DB_FILE):
@@ -637,7 +636,13 @@ def api_processor_review(job_id):
     
     # Process files copies according to review
     approved_files = []
-    
+
+    # Phase-1 records (set on job["files"] before this approval step) carry the full
+    # classification incl. sub_type/member_name/reasoning. The review payload from the
+    # client may not echo those, so keep a lookup to hydrate them when missing (only
+    # when the category is unchanged — a reclassification invalidates the old sub_type).
+    prior_by_class = {(pf.get("classified_name") or ""): pf for pf in (job.get("files") or [])}
+
     # We will copy matched statement pages and non-statement files
     # To keep simple, we can copy the classified files from staging or split them.
     # Note that in staging, core_engine has already created the renamed/merged files.
@@ -646,25 +651,42 @@ def api_processor_review(job_id):
         orig_name = f.get("original_name")
         class_name = f.get("classified_name")
         category = f.get("category")
+        sub_type = f.get("sub_type")
         acc_num = f.get("account_number")
         amount = f.get("amount")
         date_val = f.get("date")
+        member_name = f.get("member_name")
+        reasoning = f.get("reasoning", "")
         file_notes = f.get("notes", "")
-        
+
+        # Hydrate fields the client may have dropped, from the Phase-1 record.
+        prior = prior_by_class.get(class_name or "")
+        if prior and prior.get("category") == category:
+            if sub_type is None:
+                sub_type = prior.get("sub_type")
+            if member_name is None:
+                member_name = prior.get("member_name")
+            if not reasoning:
+                reasoning = prior.get("reasoning", "")
+
         # Find and copy PDF files
         if class_name and class_name != "[Split and grouped by account]":
             src_file = os.path.join(staging_dir, class_name)
 
             # Determine target name: re-derive from category (handles reclassification),
             # then uniquify so duplicate categories (e.g. multiple Income Tax docs) each
-            # get a distinct file in the workpaper directory.
+            # get a distinct file in the workpaper directory. Pass sub_type/member_name
+            # too so the re-derive preserves the detailed filename (e.g.
+            # "Contribution - Joshua Hann.pdf", "Other Expenses - Audit fee invoice.pdf").
             base_name = class_name
             if category:
                 base_name = determine_target_filename({
                     "category": category,
+                    "sub_type": sub_type,
                     "account_number": acc_num,
                     "amount": amount,
-                    "date": date_val
+                    "date": date_val,
+                    "member_name": member_name
                 }, class_name)
 
             dest_file = get_unique_filepath(workpapers_dir, base_name)
@@ -676,9 +698,12 @@ def api_processor_review(job_id):
                     "original_name": orig_name,
                     "classified_name": final_filename,
                     "category": category,
+                    "sub_type": sub_type,
                     "account_number": acc_num,
                     "amount": amount,
                     "date": date_val,
+                    "member_name": member_name,
+                    "reasoning": reasoning,
                     "notes": file_notes,
                     "status": "Approved"
                 })
@@ -688,9 +713,12 @@ def api_processor_review(job_id):
                     "original_name": orig_name,
                     "classified_name": class_name,
                     "category": category,
+                    "sub_type": sub_type,
                     "account_number": acc_num,
                     "amount": amount,
                     "date": date_val,
+                    "member_name": member_name,
+                    "reasoning": reasoning,
                     "notes": file_notes,
                     "status": "Approved"
                 })
