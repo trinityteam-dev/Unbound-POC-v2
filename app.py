@@ -657,6 +657,7 @@ def api_processor_review(job_id):
         date_val = f.get("date")
         member_name = f.get("member_name")
         reasoning = f.get("reasoning", "")
+        confidence = f.get("confidence")
         file_notes = f.get("notes", "")
 
         # Hydrate fields the client may have dropped, from the Phase-1 record.
@@ -668,6 +669,16 @@ def api_processor_review(job_id):
                 member_name = prior.get("member_name")
             if not reasoning:
                 reasoning = prior.get("reasoning", "")
+            if confidence is None:
+                confidence = prior.get("confidence")
+
+        # Metric 2 (Confident-and-Wrong Rate) needs to know what the AI originally
+        # said vs. what the human processor approved. Record both regardless of
+        # whether they match — `ai_category`/`ai_confidence` is the Phase-1 record,
+        # `overridden` is true iff the processor changed the category before sign-off.
+        ai_category = prior.get("category") if prior else category
+        ai_confidence = prior.get("confidence") if prior else confidence
+        overridden = bool(prior) and ai_category != category
 
         # Find and copy PDF files
         if class_name and class_name != "[Split and grouped by account]":
@@ -704,6 +715,10 @@ def api_processor_review(job_id):
                     "date": date_val,
                     "member_name": member_name,
                     "reasoning": reasoning,
+                    "confidence": confidence,
+                    "ai_category": ai_category,
+                    "ai_confidence": ai_confidence,
+                    "overridden": overridden,
                     "notes": file_notes,
                     "status": "Approved"
                 })
@@ -719,6 +734,10 @@ def api_processor_review(job_id):
                     "date": date_val,
                     "member_name": member_name,
                     "reasoning": reasoning,
+                    "confidence": confidence,
+                    "ai_category": ai_category,
+                    "ai_confidence": ai_confidence,
+                    "overridden": overridden,
                     "notes": file_notes,
                     "status": "Approved"
                 })

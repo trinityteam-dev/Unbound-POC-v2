@@ -20,6 +20,7 @@ interface ClassifiedFileBase {
   account_number: string | null
   amount: string | null // e.g. "270.41" or null
   date: string | null // e.g. "30.06.25" or null
+  confidence?: number | null // 0-100 LLM self-reported classification confidence
 }
 
 export interface PendingFile extends ClassifiedFileBase {
@@ -30,6 +31,11 @@ export interface PendingFile extends ClassifiedFileBase {
 export interface ApprovedFile extends ClassifiedFileBase {
   notes: string
   status: 'Approved'
+  // Metric 2 (CWR) provenance — set at processor-review approval time. See
+  // docs/EVALUATION_METRICS_REQUIREMENTS.md.
+  ai_category?: string | null
+  ai_confidence?: number | null
+  overridden?: boolean
 }
 
 export type JobFile = PendingFile | ApprovedFile

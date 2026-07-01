@@ -34,6 +34,12 @@ type Filter =
   | { kind: 'exceptions' }
   | { kind: 'category'; value: string }
 
+function confidenceColor(pct: number): string {
+  if (pct >= 85) return tokens.success
+  if (pct >= 60) return tokens.warn
+  return tokens.danger
+}
+
 function extractedData(f: JobFile): string {
   const parts: string[] = []
   if (f.account_number) parts.push(`Acct ${f.account_number}`)
@@ -329,7 +335,19 @@ export function WorkpapersScreen({ job, files, editable, onApplyOverride }: Work
                         </Text>
                       </Table.Td>
                       <Table.Td>
-                        <Text fz={13}>{f.category}</Text>
+                        <Group gap={6} wrap="nowrap">
+                          <Text fz={13}>{f.category}</Text>
+                          {typeof f.confidence === 'number' && (
+                            <Text
+                              fz={10}
+                              fw={600}
+                              c={confidenceColor(f.confidence)}
+                              title={`Classification confidence: ${f.confidence}%`}
+                            >
+                              {f.confidence}%
+                            </Text>
+                          )}
+                        </Group>
                       </Table.Td>
                       <Table.Td style={{ wordBreak: 'break-word' }}>
                         <Text fz={12.5} c={tokens.textSecondary} className="tabular-nums">

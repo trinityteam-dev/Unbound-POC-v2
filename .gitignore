@@ -13,6 +13,8 @@ venv/
 jobs/*
 !jobs/.gitkeep
 output/
+jobs_db.json
+jobs_db.json.bak
 
 # Fund source documents (client PDFs — never commit)
 data/*

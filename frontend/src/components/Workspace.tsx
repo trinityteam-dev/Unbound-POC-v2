@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Box, Button, Center, Loader, Stack, Text } from '@mantine/core'
 import { IconAlertCircle } from '@tabler/icons-react'
 import type { JobDetail, JobFile } from '../api/types'
@@ -54,15 +54,27 @@ function Pane({ children }: { children: React.ReactNode }) {
 }
 
 export function Workspace({ job, isLoading, isError, onRetry }: WorkspaceProps) {
-  const [tab, setTab] = useState<WorkspaceTab>('Reconciliation')
+  const [tab, setTabState] = useState<WorkspaceTab>('Reconciliation')
   const [files, setFiles] = useState<JobFile[]>([])
   const [playbookOpen, setPlaybookOpen] = useState(false)
   const [reconFocus, setReconFocus] = useState<ReconFocus | undefined>(undefined)
 
-  // Selecting a job resets sub-state to the phase default (spec §1).
+  // Remembers the last tab viewed per job so returning to a job restores it.
+  const lastTabByJob = useRef<Record<string, WorkspaceTab>>({})
+
+  function setTab(next: WorkspaceTab) {
+    if (job) lastTabByJob.current[job.job_id] = next
+    setTabState(next)
+  }
+
+  // Selecting a job restores its last-viewed tab, falling back to the phase default.
   useEffect(() => {
     if (!job) return
-    setTab(defaultTabForStatus(job.status))
+    const remembered = lastTabByJob.current[job.job_id]
+    const validTabs = tabsForStatus(job.status)
+    setTabState(
+      remembered && validTabs.includes(remembered) ? remembered : defaultTabForStatus(job.status),
+    )
     setFiles(job.files)
     setPlaybookOpen(false)
     setReconFocus(undefined)

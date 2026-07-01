@@ -14,7 +14,8 @@ from pypdf import PdfReader, PdfWriter
 # Winner: x-ai/grok-4.20 — 3/3 known matches, numeric schema, good query grouping, ~60s
 # Fallback: google/gemini-2.5-flash (string amounts, weaker grouping but functional)
 # Rejected: anthropic/claude-sonnet-4-6 (empty response — prompt too large for context)
-PHASE2_DEFAULT_MODEL = "x-ai/grok-4.20"
+# PHASE2_DEFAULT_MODEL = "x-ai/grok-4.20"
+PHASE2_DEFAULT_MODEL = "z-ai/glm-5.2"
 PHASE2_FALLBACK_MODEL = "google/gemini-2.5-flash"
 
 # Helper to find executables
@@ -228,8 +229,8 @@ def record_token_usage(job, call_id, phase, usage, cost_usd):
     total['total_tokens'] += usage['total_tokens']
     total['cost_usd'] = round(total['cost_usd'] + cost_usd, 6)
 
-
-def query_openrouter(api_key, system_prompt, user_content, response_format=None, model="x-ai/grok-4.20", timeout=120):
+# model="x-ai/grok-4.20"
+def query_openrouter(api_key, system_prompt, user_content, response_format=None, model="z-ai/glm-5.2", timeout=120):
     """Generic OpenRouter query helper with fallback model option."""
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
@@ -546,7 +547,8 @@ You must return a valid JSON object matching this structure:
   "amount": "Extract the total amount if the category is 'Other Expenses' (invoice/fee total), 'Contribution' (contribution amount), or 'Benefit paid/transferred' (benefit/premium amount), else null.",
   "date": "Extract the valuation 'as at' date as DD.MM.YY (e.g., '30.06.25') for the Wrap/Broker transaction-and-valuation reports, or the period-end date for the Wrap/standalone Annual Tax Statement, else null.",
   "member_name": "Extract the member / life-insured name if the category is 'Contribution', 'Benefit paid/transferred', or an ATO TSB/TBC document, else null.",
-  "reasoning": "A concise explanation of why this document matches the chosen category, sub_type and playbook rules. If 'Unclassified', name the closest categories and why they were rejected."
+  "reasoning": "A concise explanation of why this document matches the chosen category, sub_type and playbook rules. If 'Unclassified', name the closest categories and why they were rejected.",
+  "confidence": "Your confidence that 'category' is correct, as an integer 0-100. Reserve 90+ for unambiguous cases (clear issuer/title match); use 50-80 when relying on weaker signals (sparse OCR text, conflicting keywords); use below 50 when genuinely guessing."
 }}
 """
 
@@ -628,6 +630,10 @@ You must return a valid JSON object matching this structure:
 
         category = classification.get("category", "")
         reasoning = classification.get("reasoning", "")
+        try:
+            confidence = int(classification.get("confidence"))
+        except (TypeError, ValueError):
+            confidence = None
         _fn_lower = filename.lower()
         # A file is treated as a bank statement when:
         # (a) the LLM category says so, OR
@@ -752,7 +758,8 @@ You must return a valid JSON object matching this structure:
                     "amount": classification.get("amount"),
                     "date": classification.get("date"),
                     "member_name": classification.get("member_name"),
-                    "reasoning": reasoning
+                    "reasoning": reasoning,
+                    "confidence": confidence
                 })
                 update_progress(percent, f"Classified and copied: {filename} -> {os.path.basename(dest_filepath)}")
             except Exception as e:
@@ -904,7 +911,8 @@ def fallback_classify_by_keywords(filename, text, keywords_config, fund_profile)
         "amount": None,
         "date": None,
         "member_name": None,
-        "reasoning": "Classified using fallback keyword rules matching metadata."
+        "reasoning": "Classified using fallback keyword rules matching metadata.",
+        "confidence": 40
     }
 
 def reconcile_papers(workpapers_dir, fund_profile, api_key, scratch_dir, update_progress, job_type="Accounting_Audit", record_usage=None):

@@ -150,3 +150,15 @@ None of the following exist anywhere in the codebase:
 | Added `docs/.gitkeep` and `jobs/.gitkeep` to preserve folders in git | `docs/.gitkeep`, `jobs/.gitkeep` |
 | Created `README.md` | `README.md` |
 | Initial commit pushed to `git@github.com:trinityteam-dev/Unbound-POC.git` | — |
+
+---
+
+## 7. Frontend Fixes
+
+### Job tab selection reset on every job switch
+
+**File:** `frontend/src/components/Workspace.tsx:63-69`
+
+The job-change `useEffect` unconditionally called `setTab(defaultTabForStatus(job.status))`, so navigating away from a job and back always landed on the phase default tab (e.g. "Reconciliation") instead of whatever tab was last viewed for that job.
+
+**Fix:** added a `lastTabByJob` ref (`Record<jobId, WorkspaceTab>`) updated by a `setTab` wrapper on every tab change. The job-change effect now looks up the remembered tab for the incoming job and uses it if still valid for that job's current status (`tabsForStatus`), falling back to `defaultTabForStatus` otherwise.
