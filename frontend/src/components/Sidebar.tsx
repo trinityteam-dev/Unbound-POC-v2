@@ -2,15 +2,16 @@ import {
   Box,
   Group,
   Loader,
+  Select,
   Stack,
   Text,
   UnstyledButton,
 } from '@mantine/core'
-import { IconChevronRight, IconHome, IconPlus, IconRefresh } from '@tabler/icons-react'
+import { IconChevronDown, IconChevronRight, IconHome, IconPlus, IconRefresh } from '@tabler/icons-react'
 import type { Job } from '../api/types'
 import { formatRelativeShort } from '../api/format'
 import { statusDotColor } from '../lib/status'
-import { useJobs } from '../api/hooks'
+import { useJobs, useModels } from '../api/hooks'
 import { tokens } from '../theme'
 
 // De-boxed navy sidebar (spec §3). The job list is the hero: status dot +
@@ -22,6 +23,8 @@ export interface SidebarProps {
   onGoHome: () => void
   onNewAudit: () => void
   width: number
+  selectedModel: string | null
+  onSelectModel: (model: string) => void
 }
 
 const SECTION_TITLE: React.CSSProperties = {
@@ -111,9 +114,16 @@ export function Sidebar({
   onGoHome,
   onNewAudit,
   width,
+  selectedModel,
+  onSelectModel,
 }: SidebarProps) {
   const jobs = useJobs()
+  const models = useModels()
   const homeActive = selectedJobId === null
+  const modelOptions =
+    models.data?.models.map((m) => ({ value: m.model, label: m.label })) ?? []
+  // Fall back to the configured default until the parent has a selection.
+  const currentModel = selectedModel ?? models.data?.default ?? null
 
   return (
     <Stack
@@ -197,26 +207,51 @@ export function Sidebar({
         )}
       </Stack>
 
-      {/* Connected engine — pinned to the bottom */}
+      {/* Connected engine — one-line model picker, pinned to the bottom */}
       <Box
         pt={10}
         mt={8}
         px={6}
         style={{ borderTop: `1px solid ${tokens.hairline}`, flexShrink: 0 }}
       >
-        <Group gap={7} wrap="nowrap">
+        <Group gap={8} wrap="nowrap" align="center">
           <span
             style={{
-              width: 7,
-              height: 7,
+              width: 6,
+              height: 6,
               borderRadius: '50%',
               background: tokens.success,
+              boxShadow: `0 0 0 3px ${tokens.primaryTint}`,
               flexShrink: 0,
             }}
           />
-          <Text fz={11.5} c="var(--s2)" truncate>
-            Engine · grok-4.20
+          <Text
+            fz={10.5}
+            fw={700}
+            tt="uppercase"
+            c="var(--s3)"
+            style={{ letterSpacing: 0.6, flexShrink: 0 }}
+          >
+            Engine
           </Text>
+          <Select
+            size="xs"
+            data={modelOptions}
+            value={currentModel}
+            onChange={(value) => value && onSelectModel(value)}
+            placeholder={models.isLoading ? 'Loading…' : 'Select model'}
+            disabled={models.isLoading || modelOptions.length === 0}
+            allowDeselect={false}
+            checkIconPosition="right"
+            rightSection={<IconChevronDown size={12} color="var(--s3)" stroke={2.4} />}
+            comboboxProps={{ position: 'top', width: 200, offset: 6, transitionProps: { transition: 'pop', duration: 120 } }}
+            classNames={{
+              input: 'engine-select-input',
+              dropdown: 'engine-select-dropdown',
+              option: 'engine-select-option',
+            }}
+            style={{ flex: 1, minWidth: 0 }}
+          />
         </Group>
       </Box>
     </Stack>

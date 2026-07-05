@@ -9,10 +9,12 @@ export function NewAuditModal({
   opened,
   onClose,
   onCreated,
+  model,
 }: {
   opened: boolean
   onClose: () => void
   onCreated: (jobId: string) => void
+  model: string | null
 }) {
   const funds = useFunds()
   const createJob = useCreateJob()
@@ -27,7 +29,11 @@ export function NewAuditModal({
   function handleRun() {
     if (!fundId || createJob.isPending) return
     createJob.mutate(
-      { fund_id: fundId, job_type: jobType ?? 'Accounting_Audit' },
+      {
+        fund_id: fundId,
+        job_type: jobType ?? 'Accounting_Audit',
+        ...(model ? { model } : {}),
+      },
       {
         onSuccess: (res) => {
           notifications.show({

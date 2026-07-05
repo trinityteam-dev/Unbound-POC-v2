@@ -16,6 +16,9 @@ output/
 jobs_db.json
 jobs_db.json.bak
 
+# Archived runtime output
+archive/
+
 # Fund source documents (client PDFs — never commit)
 data/*
 !data/.gitkeep

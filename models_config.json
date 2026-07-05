@@ -1,0 +1,8 @@
+{
+  "default": "x-ai/grok-4.20",
+  "models": [
+    { "label": "Grok 4.20", "model": "x-ai/grok-4.20" },
+    { "label": "Gemini 2.5 Flash", "model": "google/gemini-2.5-flash" },
+    { "label": "Claude Sonnet 4.6", "model": "anthropic/claude-sonnet-4-6" }
+  ]
+}

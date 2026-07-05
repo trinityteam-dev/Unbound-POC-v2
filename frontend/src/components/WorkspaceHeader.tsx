@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import { Badge, Box, Group, Text } from '@mantine/core'
 import { IconCoins, IconLock, IconSettings } from '@tabler/icons-react'
 import type { JobDetail } from '../api/types'
-import { formatCost } from '../api/format'
+import { formatCost, getModelLabel } from '../api/format'
+import { useModels } from '../api/hooks'
 import { statusMeta } from '../lib/status'
 import { PHASE_LABEL, isPhase2Plus, tabsForStatus, type WorkspaceTab } from '../lib/phase'
 import { tokens } from '../theme'
@@ -30,6 +31,7 @@ export function WorkspaceHeader({
   const cost = formatCost(job.token_usage)
   const totalTokens = job.token_usage?.job_total?.total_tokens
   const wpLocked = isPhase2Plus(job.status)
+  const modelLabel = getModelLabel(useModels().data?.models, job.model)
 
   return (
     <Box style={{ flexShrink: 0 }}>
@@ -42,9 +44,27 @@ export function WorkspaceHeader({
         py={11}
       >
         <Box style={{ minWidth: 0 }}>
-          <Text fz={15} fw={500} c={tokens.textPrimary} truncate lh={1.25}>
-            {job.fund_name}
-          </Text>
+          <Group gap={7} wrap="wrap" align="center" style={{ rowGap: 2 }}>
+            <Text fz={15} fw={500} c={tokens.textPrimary} lh={1.25}>
+              {job.fund_name}
+            </Text>
+            {modelLabel && (
+              <Text
+                fz={10}
+                fw={600}
+                c={tokens.textTertiary}
+                style={{
+                  background: tokens.strip,
+                  border: `1px solid ${tokens.hairline}`,
+                  padding: '1px 7px',
+                  borderRadius: 999,
+                  flexShrink: 0,
+                }}
+              >
+                {modelLabel}
+              </Text>
+            )}
+          </Group>
           <Text fz={11} c={tokens.textTertiary} mt={1} truncate>
             {job.abn ? `ABN ${job.abn} · ` : ''}
             {PHASE_LABEL[job.status]}

@@ -192,6 +192,33 @@ export function ReconciliationScreen({ job, editable, focus }: ReconciliationScr
   const account =
     accounts.find((a) => a.account_number === acctNum) ?? accounts[0]
 
+  // Jump to the counter-leg of a bank-to-bank transfer: switch to the other account's
+  // "All transactions" view, then scroll+highlight the exact line (index in that account).
+  const [highlightIdx, setHighlightIdx] = useState<number | null>(null)
+  const jumpRef = useRef<{ acct: string; index: number } | null>(null)
+  function jumpToLine(accountNumber: string, index: number) {
+    jumpRef.current = { acct: accountNumber, index }
+    setAcctNum(accountNumber)
+    setView('all')
+  }
+  useEffect(() => {
+    const j = jumpRef.current
+    if (!j || j.acct !== account?.account_number || view !== 'all') return
+    jumpRef.current = null
+    const raf = requestAnimationFrame(() => {
+      document.getElementById(`txn-row-${j.index}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+      setHighlightIdx(j.index)
+    })
+    const t = setTimeout(() => setHighlightIdx(null), 2200)
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(t)
+    }
+  }, [account?.account_number, view])
+
   if (accounts.length === 0) {
     return (
       <Box style={{ flex: 1, padding: '18px 20px', minWidth: 0 }}>
@@ -327,6 +354,38 @@ export function ReconciliationScreen({ job, editable, focus }: ReconciliationScr
           </Text>
         </Group>
 
+        {account?.reconciliation &&
+          (() => {
+            const rec = account.reconciliation
+            const ok = rec.status === 'reconciled'
+            return (
+              <Box
+                mb={10}
+                style={{
+                  background: ok ? 'rgba(34, 197, 94, 0.10)' : tokens.primaryTint,
+                  border: `1px solid ${ok ? 'var(--gr)' : 'var(--am)'}`,
+                  borderRadius: 8,
+                  padding: '7px 12px',
+                }}
+              >
+                <Text fz={12} c={ok ? tokens.success : tokens.warn} fw={600}>
+                  {ok
+                    ? 'Statement reconciled — opening + credits − debits ties to closing balance.'
+                    : 'Statement does not tie out — review required.'}
+                </Text>
+                {!ok && (
+                  <Text fz={11} c={tokens.textTertiary} mt={1}>
+                    {rec.opening != null && rec.closing != null
+                      ? `Opening ${formatAud(rec.opening)} → closing ${formatAud(rec.closing)}; `
+                      : 'Statement control totals not found; '}
+                    {rec.gap != null ? `unreconciled gap ${formatAud(rec.gap)}; ` : ''}
+                    {rec.unresolved_count ? `${rec.unresolved_count} amount(s) not read.` : ''}
+                  </Text>
+                )}
+              </Box>
+            )
+          })()}
+
         <Table
           verticalSpacing={7}
           horizontalSpacing="sm"
@@ -349,32 +408,49 @@ export function ReconciliationScreen({ job, editable, focus }: ReconciliationScr
             {rows.map((t, i) => {
               const matched = t.status === 'matched'
               return (
-                <Table.Tr key={i}>
+                <Table.Tr
+                  key={i}
+                  id={`txn-row-${i}`}
+                  style={
+                    highlightIdx === i
+                      ? { background: tokens.primaryTint, transition: 'background 300ms' }
+                      : { transition: 'background 300ms' }
+                  }
+                >
                   <Table.Td>
                     <Text fz={12.5}>{t.date}</Text>
                   </Table.Td>
                   <Table.Td style={{ wordBreak: 'break-word' }}>
                     <Text fz={12.5}>{t.description}</Text>
                     {!matched && t.unmatched_reason && (
-                      <Text fz={11} c={tokens.warn} mt={1}>
-                        {t.unmatched_reason}
-                      </Text>
+                      <Group gap={4} wrap="nowrap" mt={2} align="center">
+                        <IconHelpCircle size={11} color="var(--yl)" style={{ flexShrink: 0 }} />
+                        <Text fz={11} c={tokens.warn}>
+                          No supporting evidence
+                        </Text>
+                      </Group>
                     )}
-                    {matched && t.matched_document && (() => {
-                      const md = t.matched_document
-                      // Inter-account transfer: the "document" is another bank
-                      // account in this fund — link to jump to it.
-                      const refAcct = !isFileLike(md)
-                        ? accounts.find(
-                            (a) =>
-                              a.account_number &&
-                              a.account_number !== account?.account_number &&
-                              md.includes(a.account_number),
-                          )
-                        : undefined
+                    {matched && (t.matched_document || t.internal_transfer_ref) && (() => {
+                      const md = t.matched_document ?? ''
+                      const fileLike = isFileLike(md)
+                      const ref = t.internal_transfer_ref ?? null
+                      // Bank-to-bank transfer: link to the counter-leg. Prefer the
+                      // explicit ref (exact line); fall back to matching an account
+                      // number inside the legacy matched_document string.
+                      const refAcct = ref
+                        ? accounts.find((a) => a.account_number === ref.account_number)
+                        : !fileLike
+                          ? accounts.find(
+                              (a) =>
+                                a.account_number &&
+                                a.account_number !== account?.account_number &&
+                                md.includes(a.account_number),
+                            )
+                          : undefined
+                      const isTransfer = Boolean(t.is_internal_transfer || refAcct)
                       return (
                         <Group gap={4} wrap="nowrap" mt={2} align="center">
-                          {refAcct ? (
+                          {isTransfer ? (
                             <IconArrowsLeftRight
                               size={11}
                               color="var(--tl)"
@@ -383,7 +459,17 @@ export function ReconciliationScreen({ job, editable, focus }: ReconciliationScr
                           ) : (
                             <IconFileText size={11} color="var(--gr)" style={{ flexShrink: 0 }} />
                           )}
-                          {isFileLike(md) ? (
+                          {isTransfer && (
+                            <Text
+                              fz={9.5}
+                              fw={700}
+                              c={tokens.accentTeal}
+                              style={{ letterSpacing: 0.3, flexShrink: 0 }}
+                            >
+                              BANK TRANSFER
+                            </Text>
+                          )}
+                          {fileLike ? (
                             <Anchor
                               href={api.fileUrl(job.job_id, 'workpaper', md)}
                               target="_blank"
@@ -401,11 +487,14 @@ export function ReconciliationScreen({ job, editable, focus }: ReconciliationScr
                               c={tokens.accentTeal}
                               style={{ wordBreak: 'break-word', textAlign: 'left' }}
                               onClick={() => {
-                                setAcctNum(refAcct.account_number)
-                                setView('matched')
+                                if (ref) jumpToLine(refAcct.account_number, ref.index)
+                                else {
+                                  setAcctNum(refAcct.account_number)
+                                  setView('matched')
+                                }
                               }}
                             >
-                              {md}
+                              {ref ? `${refAcct.account_name} — view matching line` : md}
                             </Anchor>
                           ) : (
                             <Text fz={11} c={tokens.textTertiary}>
@@ -415,11 +504,46 @@ export function ReconciliationScreen({ job, editable, focus }: ReconciliationScr
                         </Group>
                       )
                     })()}
+                    {matched && t.match_type === 'no_evidence_required' && (
+                      <Group gap={4} wrap="nowrap" mt={2} align="center">
+                        <IconFileText size={11} color="var(--gr)" style={{ flexShrink: 0 }} />
+                        <Text fz={11} c={tokens.textTertiary}>
+                          {t.no_evidence_reason ?? 'No external evidence required.'}
+                        </Text>
+                      </Group>
+                    )}
                   </Table.Td>
                   <Table.Td ta="right" className="tabular-nums">
-                    <Text fz={12.5} c={t.credit != null ? tokens.success : tokens.textPrimary}>
-                      {formatAud(txnAmount(t))}
-                    </Text>
+                    {t.amount_status === 'unresolved' ? (
+                      <Tooltip
+                        label="Amount could not be read from the statement or reconciled from the running balance — verify from the source statement."
+                        multiline
+                        w={240}
+                        withArrow
+                      >
+                        <Text fz={12.5} c={tokens.warn} style={{ cursor: 'help' }}>
+                          — not read
+                        </Text>
+                      </Tooltip>
+                    ) : (
+                      <>
+                        <Text fz={12.5} c={t.credit != null ? tokens.success : tokens.textPrimary}>
+                          {formatAud(txnAmount(t))}
+                        </Text>
+                        {t.amount_status === 'balance_derived' && (
+                          <Tooltip
+                            label="Amount derived from the running-balance movement (the statement's amount column was not legible)."
+                            multiline
+                            w={240}
+                            withArrow
+                          >
+                            <Text fz={9.5} c={tokens.textTertiary} style={{ cursor: 'help' }}>
+                              ≈ derived
+                            </Text>
+                          </Tooltip>
+                        )}
+                      </>
+                    )}
                   </Table.Td>
                   <Table.Td ta="center">
                     {matched ? (

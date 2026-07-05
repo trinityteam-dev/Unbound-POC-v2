@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Box } from '@mantine/core'
-import { useJobDetails, useJobs } from './api/hooks'
+import { useJobDetails, useJobs, useModels } from './api/hooks'
 import { AppHeader } from './components/AppHeader'
 import { Sidebar } from './components/Sidebar'
 import { Workspace } from './components/Workspace'
@@ -83,10 +83,15 @@ export default function App() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR)
   const [newAuditOpen, setNewAuditOpen] = useState(false)
+  const [selectedModel, setSelectedModel] = useState<string | null>(null)
 
   const jobs = useJobs()
   const details = useJobDetails(selectedJobId)
   const job = details.data
+  const models = useModels()
+  // Engine choice lives here so both the sidebar picker and the "new audit"
+  // modal (which actually submits it with the job) share one selection.
+  const currentModel = selectedModel ?? models.data?.default ?? null
 
   // No auto-select: the app opens on the Home dashboard (no job selected).
   return (
@@ -118,6 +123,8 @@ export default function App() {
           onGoHome={() => setSelectedJobId(null)}
           onNewAudit={() => setNewAuditOpen(true)}
           width={sidebarWidth}
+          selectedModel={currentModel}
+          onSelectModel={setSelectedModel}
         />
         <ResizeHandle width={sidebarWidth} onResize={setSidebarWidth} />
         {selectedJobId === null ? (
@@ -141,6 +148,7 @@ export default function App() {
         opened={newAuditOpen}
         onClose={() => setNewAuditOpen(false)}
         onCreated={setSelectedJobId}
+        model={currentModel}
       />
     </Box>
   )

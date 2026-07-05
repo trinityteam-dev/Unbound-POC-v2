@@ -6,8 +6,11 @@ import {
   IconPlus,
 } from '@tabler/icons-react'
 import type { Job, JobStatus } from '../api/types'
+import { getModelLabel } from '../api/format'
+import { useModels } from '../api/hooks'
 import { statusDotColor, statusMeta } from '../lib/status'
 import { tokens } from '../theme'
+import { FundDiscoveryBanner } from './FundDiscoveryBanner'
 
 export interface HomeProps {
   jobs: Job[] | undefined
@@ -37,6 +40,19 @@ function pillStyle(status: JobStatus): React.CSSProperties {
     borderRadius: 999,
     whiteSpace: 'nowrap',
   }
+}
+
+// Quiet "which engine ran this" tag, sat right next to the fund name.
+const modelTagStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 600,
+  color: tokens.textTertiary,
+  background: tokens.strip,
+  border: `1px solid ${tokens.hairline}`,
+  padding: '1px 7px',
+  borderRadius: 999,
+  whiteSpace: 'nowrap',
+  flexShrink: 0,
 }
 
 function Pane({ children }: { children: React.ReactNode }) {
@@ -89,6 +105,8 @@ function Step({ n, label }: { n: number; label: string }) {
 }
 
 export function Home({ jobs, isLoading, onSelectJob, onNewAudit }: HomeProps) {
+  const models = useModels().data?.models
+
   if (isLoading) {
     return (
       <Pane>
@@ -109,6 +127,9 @@ export function Home({ jobs, isLoading, onSelectJob, onNewAudit }: HomeProps) {
   return (
     <Pane>
       <Box className="scroll-accent" style={{ flex: 1, overflowY: 'auto', padding: '22px 24px' }}>
+        {/* New fund folders dropped into data/ (Story 10 discovery flow) */}
+        <FundDiscoveryBanner />
+
         {/* Greeting + primary CTA */}
         <Box
           style={{
@@ -245,8 +266,22 @@ export function Home({ jobs, isLoading, onSelectJob, onNewAudit }: HomeProps) {
                     }}
                   />
                   <Box style={{ minWidth: 0 }}>
-                    <Box style={{ fontSize: 13.5, fontWeight: 500, color: tokens.textPrimary }}>
-                      {job.fund_name}
+                    <Box
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                        rowGap: 3,
+                        columnGap: 7,
+                        fontSize: 13.5,
+                        fontWeight: 500,
+                        color: tokens.textPrimary,
+                      }}
+                    >
+                      <span>{job.fund_name}</span>
+                      {getModelLabel(models, job.model) && (
+                        <span style={modelTagStyle}>{getModelLabel(models, job.model)}</span>
+                      )}
                     </Box>
                     <Box style={{ fontSize: 11, color: tokens.textTertiary }}>
                       {job.abn ? `ABN ${job.abn}` : 'No ABN'}

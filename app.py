@@ -18,6 +18,28 @@ WORKSPACE_DIR = os.getcwd()
 FUNDS_CONFIG_FILE = os.path.join(WORKSPACE_DIR, "funds_config.json")
 JOBS_DB_FILE = os.path.join(WORKSPACE_DIR, "jobs_db.json")
 PLAYBOOK_CONFIG_FILE = os.path.join(WORKSPACE_DIR, "playbook_config.json")
+MODELS_CONFIG_FILE = os.path.join(WORKSPACE_DIR, "models_config.json")
+
+# Selectable OpenRouter models (friendly label + model id), surfaced in the UI
+# and threaded into every job run. See models_config.json.
+def load_models_config():
+    if not os.path.exists(MODELS_CONFIG_FILE):
+        return {"default": None, "models": []}
+    with open(MODELS_CONFIG_FILE, "r", encoding="utf-8") as f:
+        try:
+            return json.load(f)
+        except Exception:
+            return {"default": None, "models": []}
+
+def resolve_model(requested_model):
+    """Validate a client-supplied model id against models_config.json, falling
+    back to the configured default (or None, letting the engine use its own
+    hardcoded default) if missing/unknown."""
+    config = load_models_config()
+    known_ids = {m.get("model") for m in config.get("models", [])}
+    if requested_model and requested_model in known_ids:
+        return requested_model
+    return config.get("default")
 
 def load_funds():
     if not os.path.exists(FUNDS_CONFIG_FILE):
@@ -132,7 +154,7 @@ def merge_bank_accounts(config_accounts, discovered):
 
 
 # Background workers
-def run_phase1_worker(job_id, folder_path, fund_profile, job_type, api_key):
+def run_phase1_worker(job_id, folder_path, fund_profile, job_type, api_key, model=None):
     """Thread running the classification phase (AI Processor Agent)"""
     job_dir = get_job_dir(job_id)
     scratch_dir = os.path.join(job_dir, "scratch")
@@ -179,6 +201,7 @@ def run_phase1_worker(job_id, folder_path, fund_profile, job_type, api_key):
             scratch_dir,
             update_job_progress,
             record_usage=record_llm_usage_p1,
+            model=model,
         )
         
         jobs = load_jobs()
@@ -206,7 +229,7 @@ def run_phase1_worker(job_id, folder_path, fund_profile, job_type, api_key):
                 break
         save_jobs(jobs)
 
-def run_phase2_worker(job_id, fund_profile, job_type, api_key):
+def run_phase2_worker(job_id, fund_profile, job_type, api_key, model=None):
     """Thread running the reconciliations phase (AI Reviewer Agent)"""
     job_dir = get_job_dir(job_id)
     scratch_dir = os.path.join(job_dir, "scratch")
@@ -259,7 +282,7 @@ def run_phase2_worker(job_id, fund_profile, job_type, api_key):
         update_job_progress(None, "Phase 2: Running bank transaction reconciliation and query generation...")
         bank_recon = run_bank_reconciliation_phase(
             job_id, fund_profile, job_type, api_key, scratch_dir, update_job_progress,
-            record_usage=record_llm_usage_p2,
+            record_usage=record_llm_usage_p2, model=model,
         )
         jobs = load_jobs()
         for j in jobs:
@@ -282,6 +305,7 @@ def run_phase2_worker(job_id, fund_profile, job_type, api_key):
             scratch_dir,
             update_job_progress,
             record_usage=record_llm_usage_p2,
+            model=model,
         )
         
         # Compile automated auditor notes / exceptions based on results
@@ -526,13 +550,19 @@ def api_funds_bootstrap():
 def api_jobs():
     return jsonify(load_jobs())
 
+# API - Selectable OpenRouter models (friendly label + model id)
+@app.route("/api/models", methods=["GET"])
+def api_models():
+    return jsonify(load_models_config())
+
 # API - Create Job
 @app.route("/api/jobs/create", methods=["POST"])
 def api_create_job():
     data = request.json or {}
     fund_id = data.get("fund_id", "").strip()
     job_type = data.get("job_type", "Accounting_Audit").strip() # 'Accounting' or 'Accounting_Audit'
-    
+    model = resolve_model(data.get("model"))
+
     funds = load_funds()
     fund_profile = next((f for f in funds if f["id"] == fund_id), None)
     if not fund_profile:
@@ -566,6 +596,7 @@ def api_create_job():
         "fund_name": fund_profile.get("name"),
         "abn": fund_profile.get("abn"),
         "job_type": job_type,
+        "model": model,
         "status": "processing_docs",
         "progress_percent": 5,
         "message": "AI Processor Agent: Document discovery in progress...",
@@ -593,7 +624,7 @@ def api_create_job():
     # Launch Phase 1 worker thread
     t = threading.Thread(
         target=run_phase1_worker,
-        args=(job_id, resolved_path, fund_profile, job_type, api_key),
+        args=(job_id, resolved_path, fund_profile, job_type, api_key, model),
         daemon=True
     )
     t.start()
@@ -766,7 +797,7 @@ def api_processor_review(job_id):
 
     t = threading.Thread(
         target=run_phase2_worker,
-        args=(job_id, fund_profile, job["job_type"], api_key),
+        args=(job_id, fund_profile, job["job_type"], api_key, job.get("model")),
         daemon=True
     )
     t.start()

@@ -1,5 +1,7 @@
 // Display helpers for the engine's loosely-typed string fields (spec §8).
 
+import type { ModelOption } from './types'
+
 /** Parse a string amount ("270.41") to a number, or null when absent/invalid. */
 export function parseAmount(a: string | null | undefined): number | null {
   if (a == null || a === '') return null
@@ -91,4 +93,17 @@ export function formatCost(
   const cost = usage?.job_total?.cost_usd
   if (cost == null) return null
   return `$${cost.toFixed(3)}`
+}
+
+/**
+ * Friendly label for a job's recorded model id ("x-ai/grok-4.20" → "Grok
+ * 4.20"). Falls back to the raw id if it's no longer in models_config.json,
+ * or null if the job predates model selection (no id recorded at all).
+ */
+export function getModelLabel(
+  models: ModelOption[] | undefined,
+  modelId: string | null | undefined,
+): string | null {
+  if (!modelId) return null
+  return models?.find((m) => m.model === modelId)?.label ?? modelId
 }

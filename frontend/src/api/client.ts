@@ -1,10 +1,14 @@
 // Typed fetch wrappers for the Flask engine (Appendix A — contract unchanged).
 import type {
+  BootstrapResult,
   CreateJobPayload,
   CreateJobResponse,
+  DiscoveredFolder,
   Fund,
+  FundConfig,
   Job,
   JobDetail,
+  ModelsConfig,
   Playbook,
   ProcessorReviewPayload,
   QueryStatusPayload,
@@ -46,12 +50,13 @@ const put = <T>(path: string, body: unknown) =>
 export const api = {
   // Funds
   getFunds: () => request<Fund[]>('/api/funds'),
-  discoverFunds: () => request<string[]>('/api/funds/discover'),
+  discoverFunds: () => request<DiscoveredFolder[]>('/api/funds/discover'),
   bootstrapFunds: (folders: string[]) =>
-    post<unknown>('/api/funds/bootstrap', { folders }),
+    post<BootstrapResult[]>('/api/funds/bootstrap', { folders }),
   getFundCostSummary: (fundId: string) =>
     request<unknown>(`/api/funds/${fundId}/cost-summary`),
-  registerFund: (fund: Partial<Fund>) => post<Fund>('/api/funds', fund),
+  registerFund: (fund: FundConfig) =>
+    post<{ status: string; funds: Fund[] }>('/api/funds', fund),
 
   // Playbook — global shared taxonomy (GET/PUT) + additive per-fund complements.
   getPlaybook: () => request<Playbook>('/api/playbook'),
@@ -59,6 +64,9 @@ export const api = {
     put<{ status: string }>('/api/playbook', playbook),
   saveFundComplements: (payload: SaveFundComplementsPayload) =>
     post<{ status: string }>('/api/funds', payload),
+
+  // Selectable OpenRouter models
+  getModels: () => request<ModelsConfig>('/api/models'),
 
   // Jobs
   getJobs: () => request<Job[]>('/api/jobs'),

@@ -190,6 +190,33 @@ Phase-1 job record when the review payload (from the SPA) omits them, so the bac
 no longer depends on the client round-tripping the new fields. Frontend follow-up
 (optional): have the review UI echo `sub_type`/`member_name` so user edits persist.
 
+## 6b. Post-refactor fixes (Seyffer run — identical copies classified differently)
+
+Two identical copies of a Macquarie Private Bank report (`@seyffer (1).pdf`,
+`@seyffer-823.pdf`) were classified differently — one `Wrap - Annual Transaction
+Listing and Portfolio Valuation Report`, the other `Unclassified` — in
+`job_20260701_224642`. Both reasonings described the same content; they diverged only
+on whether "Macquarie Private Bank" counts as a "wrap/platform".
+
+**Cause.** Rule 2 listed specific platform names ("HUB24, UBS, Macquarie Wrap, BT
+Panorama"). "Macquarie **Private Bank**" isn't literally in that list, so on this
+borderline case the model flip-flopped run-to-run (closed-set reading → Unclassified;
+platform reading → Wrap). Same ambiguity-plus-stochasticity family as the Rebecca-TSB
+issue. Correct answer is Wrap.
+
+**Fix 1 — wording.** Rule 2 now states the platform list is **non-exhaustive** and
+names Macquarie Private Bank explicitly; a consolidated portfolio-valuation + cash-
+ledger report from any platform or private-bank investment service → `Wrap - Annual
+Transaction Listing and Portfolio Valuation Report`. Applied in `core_engine.py`,
+`playbook_config.json` (both job types), `classify_workpapers.py`.
+
+**Fix 2 — content-hash dedup (also cuts tokens).** `classify_papers` now caches each
+classification keyed on a SHA-256 of the extracted text (filename excluded). An exact
+copy reuses the first file's classification and **skips the LLM call** — so duplicates
+always get the same category and we don't pay to classify the same content twice. The
+Phase-1 classify JSON is also parsed via `_lenient_json_loads` now (same robustness as
+Phase 2).
+
 ## 7. Touch points (file:symbol)
 
 - `playbook_config.json` — taxonomy + scope prose (authoritative)

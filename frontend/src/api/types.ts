@@ -66,17 +66,47 @@ export interface ReconTxn {
   debit: number | null
   status: string
   type?: string
+  match_type?: string
   matched_document?: string | null
+  matched_amount?: number | string | null
+  match_group?: string | null
+  is_internal_transfer?: boolean
+  internal_transfer_ref?: { account_number: string; index: number } | null
+  is_opening_balance?: boolean
+  amount_status?: 'ocr_confirmed' | 'balance_confirmed' | 'balance_derived' | 'unresolved' | string
+  no_evidence_reason?: string | null
   unmatched_reason?: string | null
   account_name?: string
   account_number?: string
   smsf_category?: string
 }
 
+export interface ReconStatementControls {
+  opening?: number | null
+  closing?: number | null
+  total_credits?: number | null
+  total_debits?: number | null
+}
+
+export interface ReconStatementTieOut {
+  status?: 'reconciled' | 'needs_review' | string
+  tie_out?: boolean | null
+  gap?: number | null
+  unresolved_count?: number
+  computed_credits?: number
+  computed_debits?: number
+  opening?: number | null
+  closing?: number | null
+  stated_total_credits?: number | null
+  stated_total_debits?: number | null
+}
+
 export interface ReconAccount {
   account_name: string
   account_number: string
   transactions: ReconTxn[]
+  controls?: ReconStatementControls
+  reconciliation?: ReconStatementTieOut
 }
 
 export type QueryStatus = 'pending' | 'sent' | 'dismissed' | string
@@ -149,6 +179,9 @@ export interface Job {
   progress_percent?: number
   message?: string
   created_at: string // space-separated "2026-06-19 11:08:31", NOT ISO
+  // OpenRouter model id the job ran (and will continue running Phase 2) with.
+  // Null/absent on jobs created before model selection existed.
+  model?: string | null
 }
 
 export interface JobDetail extends Job {
@@ -185,10 +218,62 @@ export interface Fund {
   [k: string]: unknown
 }
 
+// ── Fund discovery / bootstrap (Story 10) ──────────────────────────
+// GET /api/funds/discover — unregistered folders under data/.
+export interface DiscoveredFolder {
+  folder_name: string
+  folder_path: string
+  pdf_count: number
+}
+
+export interface FundBankAccount {
+  name: string
+  number: string
+  bsb: string
+}
+
+export interface FundMember {
+  name: string
+  tfn: string
+  prior_year_tsb: number
+  current_year_tsb: number
+}
+
+// Full fund config as proposed by POST /api/funds/bootstrap and accepted
+// (upserted) by POST /api/funds.
+export interface FundConfig {
+  id: string
+  name: string
+  abn: string
+  folder_path: string
+  bank_accounts: FundBankAccount[]
+  members: FundMember[]
+  keyword_complements: Playbook
+}
+
+export interface BootstrapResult {
+  proposed: FundConfig
+  warning: string | null
+}
+
+// ── Selectable OpenRouter models ────────────────────────────────────
+// GET /api/models — friendly label + OpenRouter model id, read from
+// models_config.json. `default` is the model id used when none is selected.
+export interface ModelOption {
+  label: string
+  model: string
+}
+
+export interface ModelsConfig {
+  default: string | null
+  models: ModelOption[]
+}
+
 // ── Request payloads ───────────────────────────────────────────────
 export interface CreateJobPayload {
   fund_id: string
   job_type: string
+  model?: string
 }
 
 // POST /api/jobs/create returns a thin ack (NOT a full job record).

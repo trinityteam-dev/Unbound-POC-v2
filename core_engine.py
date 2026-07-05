@@ -3,19 +3,21 @@ import re
 import sys
 import json
 import shutil
+import hashlib
 import tempfile
 import subprocess
 import datetime
+import threading
 import requests
-from collections import defaultdict
+from collections import defaultdict, Counter
 from pypdf import PdfReader, PdfWriter
 
 # Phase 2 model selection (Story 4 — benchmarked 2026-06-19)
 # Winner: x-ai/grok-4.20 — 3/3 known matches, numeric schema, good query grouping, ~60s
 # Fallback: google/gemini-2.5-flash (string amounts, weaker grouping but functional)
 # Rejected: anthropic/claude-sonnet-4-6 (empty response — prompt too large for context)
-# PHASE2_DEFAULT_MODEL = "x-ai/grok-4.20"
-PHASE2_DEFAULT_MODEL = "z-ai/glm-5.2"
+PHASE2_DEFAULT_MODEL = "x-ai/grok-4.20"
+# PHASE2_DEFAULT_MODEL = "z-ai/glm-5.2"
 PHASE2_FALLBACK_MODEL = "google/gemini-2.5-flash"
 
 # Helper to find executables
@@ -44,12 +46,18 @@ def extract_pdf_text(filepath, max_pages=3):
     except Exception as e:
         raise RuntimeError(f"pypdf reader error: {str(e)}")
 
-def ocr_pdf_first_page(filepath, scratch_dir):
+def ocr_pdf_first_page(filepath, scratch_dir, dpi=150, psm=None):
     """Render the first page of a PDF and run OCR using tesseract."""
-    return ocr_pdf_single_page(filepath, 0, scratch_dir)
+    return ocr_pdf_single_page(filepath, 0, scratch_dir, dpi=dpi, psm=psm)
 
-def ocr_pdf_single_page(filepath, page_idx, scratch_dir):
-    """Render a single page of a PDF and run OCR using tesseract (page_idx is 0-based)."""
+def ocr_pdf_single_page(filepath, page_idx, scratch_dir, dpi=150, psm=None):
+    """Render a single page of a PDF and run OCR using tesseract (page_idx is 0-based).
+
+    dpi/psm default to the general-purpose settings (150 DPI, tesseract auto PSM 3).
+    Callers parsing dense columnar layouts (bank statements) pass a higher DPI and
+    psm=6 (uniform block) — see STATEMENT_OCR_DPI / STATEMENT_OCR_PSM. These are NOT
+    applied globally because psm 6 can degrade multi-column/letter documents that auto
+    segmentation handles better."""
     if not os.path.exists(PDFTOPPM_PATH) or not os.path.exists(TESSERACT_PATH):
         raise FileNotFoundError(
             f"Required tools not found. pdftoppm: {PDFTOPPM_PATH}, tesseract: {TESSERACT_PATH}"
@@ -63,7 +71,7 @@ def ocr_pdf_single_page(filepath, page_idx, scratch_dir):
             "-png",
             "-f", str(page_idx + 1),
             "-l", str(page_idx + 1),
-            "-r", "150",
+            "-r", str(dpi),
             filepath,
             prefix
         ]
@@ -86,6 +94,8 @@ def ocr_pdf_single_page(filepath, page_idx, scratch_dir):
             png_path,
             ocr_out_base
         ]
+        if psm is not None:
+            cmd_ocr += ["--psm", str(psm)]
         
         try:
             subprocess.run(cmd_ocr, check=True, capture_output=True)
@@ -229,9 +239,17 @@ def record_token_usage(job, call_id, phase, usage, cost_usd):
     total['total_tokens'] += usage['total_tokens']
     total['cost_usd'] = round(total['cost_usd'] + cost_usd, 6)
 
-# model="x-ai/grok-4.20"
-def query_openrouter(api_key, system_prompt, user_content, response_format=None, model="z-ai/glm-5.2", timeout=120):
-    """Generic OpenRouter query helper with fallback model option."""
+# model="z-ai/glm-5.2"
+def query_openrouter(api_key, system_prompt, user_content, response_format=None,model="x-ai/grok-4.20" , timeout=120, wall_clock_timeout=None):
+    """Generic OpenRouter query helper with fallback model option.
+
+    `timeout` is passed to `requests` as its per-read-chunk timeout — a response that
+    keeps trickling bytes slowly (seen with z-ai/glm-5.2 on the large reconciliation
+    prompt, docs/RECONCILIATION_GLM_HANG_RCA.md) never trips it and can hang
+    indefinitely. `wall_clock_timeout` bounds the *total* request duration regardless of
+    how steadily bytes arrive; defaults to a generous multiple of `timeout` so it won't
+    cut off a slow-but-legitimately-working call, only a truly stuck one.
+    """
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -251,13 +269,45 @@ def query_openrouter(api_key, system_prompt, user_content, response_format=None,
     if response_format:
         payload["response_format"] = response_format
 
+    if wall_clock_timeout is None:
+        wall_clock_timeout = max(timeout * 5, 600)
+
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=timeout)
+        result_box = {}
+
+        def _do_request():
+            try:
+                result_box["response"] = requests.post(url, headers=headers, json=payload, timeout=timeout)
+            except Exception as e:
+                result_box["error"] = e
+
+        worker = threading.Thread(target=_do_request, daemon=True)
+        worker.start()
+        worker.join(wall_clock_timeout)
+        if worker.is_alive():
+            # The request is abandoned here (the thread keeps running in the background
+            # until its own per-chunk timeout trips), but the caller gets control back
+            # instead of hanging indefinitely.
+            raise TimeoutError(
+                f"OpenRouter request to {model} exceeded the {wall_clock_timeout}s wall-clock "
+                "deadline with no response — abandoning and failing fast."
+            )
+        if "error" in result_box:
+            raise result_box["error"]
+
+        response = result_box["response"]
         response.raise_for_status()
         res_data = response.json()
         choices = res_data.get("choices", [])
         if not choices:
             raise ValueError(f"No choices returned. Response: {res_data}")
+        finish_reason = choices[0].get("finish_reason")
+        if finish_reason == "length":
+            raise ValueError(
+                f"OpenRouter response from {model} was truncated (finish_reason='length') "
+                "— it hit the model's max output token limit before finishing. Treating as "
+                "a failure rather than parsing partial/corrupt JSON."
+            )
         raw_usage = res_data.get("usage", {})
         usage = {
             "model": model,
@@ -471,8 +521,9 @@ def get_unique_filepath(dest_dir, filename):
         counter += 1
     return os.path.join(dest_dir, new_filename)
 
-def classify_papers(input_dir, workpapers_dir, fund_profile, api_key, scratch_dir, update_progress, job_type="Accounting_Audit", record_usage=None):
+def classify_papers(input_dir, workpapers_dir, fund_profile, api_key, scratch_dir, update_progress, job_type="Accounting_Audit", record_usage=None, model=None):
     """Processes, OCRs, classifies files, and dynamically splits/groups bank statement pages by account."""
+    model = model or PHASE2_DEFAULT_MODEL
     os.makedirs(workpapers_dir, exist_ok=True)
     
     # Recursively find all files, excluding the Additional Notes subfolder (read directly by Phase 2)
@@ -529,8 +580,8 @@ Classify a single document for the fund '{fund_profile.get('name')}' using the '
 
 Classify by the document's PURPOSE and ISSUER, not by isolated keywords. Choose EXACTLY ONE category. Apply these precedence rules in order:
 1. PRIOR-YEAR OVERRIDE: a finalised/signed prior-year deliverable, or content relating ONLY to a year before the audit year, => "Prior Year Documents". EXCEPTION: live ATO/registry/super snapshots that merely list prior-year transactions or a prior-30-June balance are classified by type (=> "ATO Accounts"). Future-year documents are classified by type.
-2. ISSUER ROUTING: a wrap/platform-issued document (HUB24, UBS, Macquarie Wrap, BT Panorama) => one of the "Wrap -" categories (transactions+valuation / tax statement / Type 2 report); a broker consolidated pack (e.g. Ord Minnett) => "Broker - Transaction Listing and Portfolio Valuation Report"; a single-holding document => the specific direct category (Dividend Statement / Distribution Statement / Annual Tax Statement / Trade Contract / HIN Holding Statement / Chess Holding).
-3. NAMING TRAP: an "Activity Statement" or "Statement of Account" issued by a private accountant/firm is NOT an ATO document => "Other Expenses"; only ATO-issued income-tax/integrated/activity/PAYG/GST documents => "ATO Accounts".
+2. ISSUER ROUTING: a wrap/platform/private-bank-issued document => one of the "Wrap -" categories (transactions+valuation / tax statement / Type 2 report). Wrap/platform issuers include BUT ARE NOT LIMITED TO HUB24, UBS, Macquarie (Wrap AND Private Bank), BT Panorama, Netwealth, CFS, Praemium, Mason Stevens — treat this as a non-exhaustive list, NOT a closed set: ANY consolidated multi-asset investor/portfolio report from an investment platform or a bank's private-client investment service is a "Wrap -" category. In particular, a consolidated PORTFOLIO VALUATION + CASH LEDGER / transaction report (e.g. a Macquarie Private Bank report) => "Wrap - Annual Transaction Listing and Portfolio Valuation Report". A broker consolidated pack (e.g. Ord Minnett) => "Broker - Transaction Listing and Portfolio Valuation Report". A single-holding document => the specific direct category (Dividend Statement / Distribution Statement / Annual Tax Statement / Trade Contract / HIN Holding Statement / Chess Holding). IMPORTANT — "Distribution Statement" scope: a managed fund/trust's own "Periodic Statement" for ONE fund is "Distribution Statement" even when it ALSO shows a unit valuation, transaction history and fees for that fund, as long as the issuer is the fund manager itself (not a wrap/platform). Do NOT reject "Distribution Statement" on the grounds that the document is a "general periodic investor statement" rather than a pure distribution-only notice — that distinction does not exist in this taxonomy; the same fund manager's periodic statement template is Distribution Statement regardless of which specific underlying fund it names.
+3. NAMING TRAP: an "Activity Statement" or "Statement of Account" issued by a private accountant/firm is NOT an ATO document => "Other Expenses"; only ATO-issued income-tax/integrated/activity/PAYG/GST documents => "ATO Accounts". Within "ATO Accounts", the sub_type MUST be exactly "ITA" or "ICA" — never the generic phrase "ATO integrated client account": an ATO Income Tax Account statement / notice of assessment / income tax account document => sub_type "ITA"; an ATO Integrated Client Account statement or an Activity Statement (BAS/IAS, GST/PAYG instalments or withholding) => sub_type "ICA".
 4. CONTRIBUTIONS vs ATO ACCOUNTS: decide by the document's HEADLINE SUBJECT / main table, using the title and filename. (a) If the title or main table is "Total Superannuation Balance" / TSB / TBC => "ATO Accounts", EVEN THOUGH a TSB report always references contribution caps and eligibility — that does NOT make it a contribution document. (b) If the title or main table is concessional / non-concessional CONTRIBUTIONS (amounts received and cap usage) => "Contribution", EVEN THOUGH it shows the member's TSB. (c) When unsure, the document title/filename wins: "...Total Superannuation Balance" => ATO Accounts; "...Concessional/Non-concessional Contributions" => Contribution. Other ATO income-tax / integrated-client / PAYG / GST account documents => "ATO Accounts".
 5. INSURANCE: a member life/TPD/income-protection premium => "Benefit paid/transferred"; property insurance => "Investment in Real Property".
 6. LENDER vs BORROWER: the fund BORROWS (bare trust, limited-recourse loan) => "LRBA"; the fund LENDS => "Loan Given by the SMSF".
@@ -542,7 +593,7 @@ You must choose EXACTLY one of the active playbook categories below:
 You must return a valid JSON object matching this structure:
 {{
   "category": "The exact category name chosen from the list above, or 'Unclassified'.",
-  "sub_type": "The specific document nature within the category (e.g. 'Copy of share certificate', 'ATO integrated client account', 'Monthly Rental Statement', 'Audit fee invoice'), else null.",
+  "sub_type": "The specific document nature within the category (e.g. 'Copy of share certificate', 'Monthly Rental Statement', 'Audit fee invoice'; for 'ATO Accounts' use exactly 'ITA' for Income Tax Account documents or 'ICA' for Integrated Client Account/Activity Statement documents), else null.",
   "account_number": "Extract the bank account number (8-15 digits, strip formatting) if the category is 'Bank & Term Deposits', else null.",
   "amount": "Extract the total amount if the category is 'Other Expenses' (invoice/fee total), 'Contribution' (contribution amount), or 'Benefit paid/transferred' (benefit/premium amount), else null.",
   "date": "Extract the valuation 'as at' date as DD.MM.YY (e.g., '30.06.25') for the Wrap/Broker transaction-and-valuation reports, or the period-end date for the Wrap/standalone Annual Tax Statement, else null.",
@@ -561,6 +612,12 @@ You must return a valid JSON object matching this structure:
     # Brand per account discovered from statement content (Layer 5) — keyed by
     # account number, derived from the source filename it was first seen on.
     discovered_brands = {}
+
+    # Content-hash dedup: identical files (exact copies) share one classification.
+    # Keyed on the extracted text ONLY (not the filename), so duplicate copies with
+    # different names get the SAME category — and we skip the LLM call for the copy,
+    # saving tokens. Maps content hash -> classification dict.
+    classification_cache = {}
 
     for idx, filepath in enumerate(pdf_files, 1):
         filename = os.path.basename(filepath)
@@ -609,24 +666,35 @@ You must return a valid JSON object matching this structure:
             })
             continue
 
-        # 3. Query OpenRouter — include the source filename so the LLM can use
-        # it as an additional classification signal (e.g. "Bank Statements" in
-        # the filename overrides weak or misleading body-text keywords).
-        try:
-            res, usage = query_openrouter(api_key, system_prompt, f"Source filename: {filename}\n\nDocument content:\n```\n{text[:3500]}\n```\n\nClassify this document.", response_format={"type": "json_object"})
-            if record_usage:
-                record_usage(f'phase1_classify_{filename}', 'phase1', usage)
-            classification = json.loads(res)
-        except Exception as e:
-            # Local keyword classification fallback in case LLM fails
-            classification = fallback_classify_by_keywords(filename, text, keywords_config, fund_profile)
-            if not classification:
-                unprocessed_files.append({
-                    "filename": filename,
-                    "path": filepath,
-                    "reason": f"API Classification call failed and fallback failed: {str(e)}"
-                })
-                continue
+        # 3. Classify. First check the content-hash cache: an exact copy of an
+        # already-classified file reuses its classification and skips the LLM call
+        # (deterministic result for duplicates + token saving). Otherwise query the
+        # LLM, including the source filename as an extra classification signal.
+        content_key = hashlib.sha256(text.strip().encode("utf-8")).hexdigest()
+        cached = classification_cache.get(content_key)
+        if cached is not None:
+            classification = dict(cached)
+            update_progress(percent, f"Identical to an already-classified file — reusing classification (no LLM call): {filename}")
+        else:
+            try:
+                res, usage = query_openrouter(api_key, system_prompt, f"Source filename: {filename}\n\nDocument content:\n```\n{text[:3500]}\n```\n\nClassify this document.", response_format={"type": "json_object"}, model=model)
+                if record_usage:
+                    record_usage(f'phase1_classify_{filename}', 'phase1', usage)
+                classification = _lenient_json_loads(res, context=f"classification for {filename}")
+                if not classification:
+                    raise ValueError("empty or unparseable classification response")
+            except Exception as e:
+                # Local keyword classification fallback in case LLM fails
+                classification = fallback_classify_by_keywords(filename, text, keywords_config, fund_profile)
+                if not classification:
+                    unprocessed_files.append({
+                        "filename": filename,
+                        "path": filepath,
+                        "reason": f"API Classification call failed and fallback failed: {str(e)}"
+                    })
+                    continue
+            # Cache for any later exact-copy of this content.
+            classification_cache[content_key] = dict(classification)
 
         category = classification.get("category", "")
         reasoning = classification.get("reasoning", "")
@@ -724,17 +792,14 @@ You must return a valid JSON object matching this structure:
                     bank_account_pages[sole_acc].sort(key=lambda p: p["page_num"])
                     bank_account_pages["unknown"] = []
 
-                processed_files.append({
-                    "original_name": filename,
-                    "classified_name": "[Split and grouped by account]",
-                    "category": "Bank Statement (Grouped)",
-                    "sub_type": "Bank statement",
-                    "account_number": current_acc if current_acc != "unknown" else None,
-                    "amount": None,
-                    "date": None,
-                    "member_name": None,
-                    "reasoning": f"Parsed {num_pages} pages and grouped them under account statements."
-                })
+                # Deliberately no processed_files.append() here. A "Bank Statement
+                # (Grouped)" row per source file added no information beyond what the
+                # merged per-account file's own `reasoning` already lists (which source
+                # files/pages fed it) — it only cluttered the pending-review workpapers
+                # list with unclickable, identically-labelled rows (classified_name was
+                # always the fixed "[Split and grouped by account]" placeholder) and was
+                # always dropped at processor sign-off anyway (app.py's SPLIT_MARKER
+                # skip). See docs/BANK_ACCOUNT_DISCOVERY_RCA.md, 2026-07-05 entry.
                 update_progress(percent, f"Split and grouped pages of statement: {filename}")
             except Exception as e:
                 unprocessed_files.append({
@@ -915,8 +980,9 @@ def fallback_classify_by_keywords(filename, text, keywords_config, fund_profile)
         "confidence": 40
     }
 
-def reconcile_papers(workpapers_dir, fund_profile, api_key, scratch_dir, update_progress, job_type="Accounting_Audit", record_usage=None):
+def reconcile_papers(workpapers_dir, fund_profile, api_key, scratch_dir, update_progress, job_type="Accounting_Audit", record_usage=None, model=None):
     """Performs reconciliations using the custom templated LLM prompt based on discovered profile."""
+    model = model or PHASE2_DEFAULT_MODEL
     update_progress(70, "Starting dynamic audit checklist and reconciliations...")
     
     available_files = sorted(os.listdir(workpapers_dir))
@@ -1112,12 +1178,12 @@ JSON Schema:
 }}
 """
 
-    update_progress(80, "Querying OpenRouter AI (x-ai/grok-4.20) for dynamic audit analysis...")
+    update_progress(80, f"Querying OpenRouter AI ({model}) for dynamic audit analysis...")
     ai_results = {}
     use_fallback = False
 
     try:
-        res, usage = query_openrouter(api_key, system_prompt, f"Here is the text extracted from the working papers:\n\n{all_docs_context}", response_format={"type": "json_object"})
+        res, usage = query_openrouter(api_key, system_prompt, f"Here is the text extracted from the working papers:\n\n{all_docs_context}", response_format={"type": "json_object"}, model=model)
         if record_usage:
             record_usage('phase2_checklist', 'phase2', usage)
         ai_results = json.loads(res)
@@ -1282,6 +1348,184 @@ def build_phase2_context(job_id, fund_profile, job_record):
     }
 
 
+def _lenient_json_loads(res, context=""):
+    """Parse an LLM JSON response tolerantly. LLMs occasionally return an empty string,
+    a markdown-fenced block, or prose around the JSON — a bare json.loads() on that
+    raises and (previously) aborted the whole Phase-2 worker. Returns the parsed object,
+    or None when nothing usable can be recovered (caller decides how to degrade)."""
+    if not res or not str(res).strip():
+        print(f"[Phase 2] Empty LLM response{(' — ' + context) if context else ''}", file=sys.stderr)
+        return None
+    s = str(res).strip()
+    # Strip ```json ... ``` / ``` ... ``` fences if present
+    if s.startswith("```"):
+        s = re.sub(r"^```[a-zA-Z0-9]*\s*", "", s)
+        if s.endswith("```"):
+            s = s[:-3]
+        s = s.strip()
+    try:
+        return json.loads(s)
+    except (json.JSONDecodeError, ValueError):
+        # Salvage the outermost JSON object/array if wrapped in prose
+        start = min([i for i in (s.find("{"), s.find("[")) if i != -1], default=-1)
+        end = max(s.rfind("}"), s.rfind("]"))
+        if start != -1 and end > start:
+            try:
+                return json.loads(s[start:end + 1])
+            except (json.JSONDecodeError, ValueError):
+                pass
+    print(f"[Phase 2] Could not parse LLM JSON{(' — ' + context) if context else ''}", file=sys.stderr)
+    return None
+
+
+# Statement-scoped OCR settings. Higher DPI (300) recovers the small-font amount column
+# that 150 DPI drops. We deliberately keep tesseract's DEFAULT page-segmentation (auto,
+# psm 3) rather than psm 6: an A/B on the NAB statement showed psm 6 collapses the page
+# into one block and DROPS the dot-leader amount lines (7 amounts vs 15 at psm 3). Only
+# the DPI bump is applied; psm stays default. Scoped to bank-statement parsing only.
+STATEMENT_OCR_DPI = 300
+STATEMENT_OCR_PSM = None  # None => tesseract default (auto, psm 3)
+
+_DOT_LEADER_RE = re.compile(r"(?:[.…]\s*){3,}")
+_OPENING_BAL_RE = re.compile(r"brought\s+forward|opening\s+balance|balance\s+b/?f(?:wd)?", re.I)
+_CLOSING_BAL_RE = re.compile(r"closing\s+balance|balance\s+c/?f(?:wd)?", re.I)
+_INTEREST_CREDIT_RE = re.compile(r"\b(?:credit\s+interest|interest\s+(?:paid|credited)|interest)\b", re.I)
+
+
+def _clean_statement_text(text):
+    """Collapse dot-leader runs (e.g. 'Superchoice P/L 481471........1,664.84') to a
+    single space so OCR'd amounts adjacent to leaders aren't swallowed by the parser."""
+    if not text:
+        return text
+    return _DOT_LEADER_RE.sub(" ", text)
+
+
+def _is_opening_balance_row(desc):
+    return bool(_OPENING_BAL_RE.search(desc or ""))
+
+
+def _is_closing_balance_row(desc):
+    return bool(_CLOSING_BAL_RE.search(desc or ""))
+
+
+def _find_control(text, label_re):
+    """Find a statement control figure: the first amount within 80 chars after a label."""
+    m = re.search(label_re, text or "", re.I)
+    if not m:
+        return None
+    window = (text or "")[m.end(): m.end() + 80]
+    am = re.search(r"([0-9][0-9,]*\.\d{2})", window)
+    return _recon_parse_amount(am.group(1)) if am else None
+
+
+def _parse_statement_controls(text):
+    """Extract the statement's own control totals (the summary box), which OCR captures
+    reliably and which are the audit anchors for validating the transaction extraction."""
+    return {
+        "opening": _find_control(text, r"opening\s+balance|brought\s+forward"),
+        "closing": _find_control(text, r"closing\s+balance"),
+        "total_credits": _find_control(text, r"total\s+credits?"),
+        "total_debits": _find_control(text, r"total\s+debits?"),
+    }
+
+
+def _amount_in_text(amt, text):
+    """True if `amt` appears verbatim in the statement text, in any common format."""
+    if amt is None:
+        return False
+    cands = {f"{amt:,.2f}", f"{amt:.2f}", f"{amt:,.0f}"}
+    if amt == int(amt):
+        cands.add(str(int(amt)))
+    return any(c in (text or "") for c in cands)
+
+
+def _resolve_statement_amounts(transactions, text, controls):
+    """Audit-grounded amount resolution. An LLM-emitted amount is TRUSTED only if it is
+    corroborated — either it appears verbatim in the statement text, OR it equals the
+    running-balance movement. An uncorroborated amount (likely a mis-read or hallucination,
+    e.g. a '27,000' that appears nowhere) is REJECTED; we substitute the balance-delta if
+    one is available, otherwise the amount is marked 'unresolved' (never a fabricated
+    number). Each row gets amount_status: ocr_confirmed | balance_confirmed |
+    balance_derived | unresolved. Opening rows are flagged and used as the balance anchor,
+    seeded from the statement's stated opening balance when present."""
+    prev_bal = (controls or {}).get("opening")
+    for t in transactions:
+        desc = t.get("description", "") or ""
+        bal = _recon_parse_amount(t.get("balance"))
+        if _is_opening_balance_row(desc):
+            t["is_opening_balance"] = True
+            if bal is not None:
+                prev_bal = bal
+            continue
+        read_amt = _recon_txn_amount(t)
+        delta = round(bal - prev_bal, 2) if (bal is not None and prev_bal is not None) else None
+
+        resolved, status = None, "unresolved"
+        if read_amt is not None:
+            corr_text = _amount_in_text(read_amt, text)
+            corr_delta = delta is not None and abs(abs(delta) - read_amt) <= 0.01
+            if corr_text and corr_delta:
+                resolved, status = read_amt, "ocr_confirmed"
+            elif corr_text or corr_delta:
+                resolved, status = read_amt, "ocr_confirmed" if corr_text else "balance_confirmed"
+            elif delta is not None and abs(delta) >= 0.01:
+                resolved, status = abs(delta), "balance_derived"  # reject the uncorroborated read
+            else:
+                resolved, status = None, "unresolved"
+        elif delta is not None and abs(delta) >= 0.01:
+            resolved, status = abs(delta), "balance_derived"
+
+        if resolved is None:
+            t["debit"], t["credit"] = None, None
+        elif delta is not None:
+            if delta >= 0:
+                t["credit"], t["debit"] = resolved, None
+            else:
+                t["debit"], t["credit"] = resolved, None
+        elif t.get("debit"):
+            t["debit"], t["credit"] = resolved, None
+        else:
+            t["credit"], t["debit"] = resolved, None
+        t["amount_status"] = status
+
+        if bal is not None:
+            prev_bal = bal
+    return transactions
+
+
+def _compute_statement_reconciliation(acc_result, controls):
+    """Statement-level tie-out against the stated controls (the audit gate). Returns a
+    dict describing whether the extracted transactions reconcile: opening + credits -
+    debits should equal closing, with no unresolved amounts. When it does not tie (or
+    controls are unavailable), the statement is flagged for manual review rather than
+    trusted."""
+    controls = controls or {}
+    txs = [t for t in acc_result.get("transactions", []) if not t.get("is_opening_balance")]
+    credits = round(sum(_recon_parse_amount(t.get("credit")) or 0.0 for t in txs), 2)
+    debits = round(sum(_recon_parse_amount(t.get("debit")) or 0.0 for t in txs), 2)
+    unresolved = sum(1 for t in txs if t.get("amount_status") == "unresolved")
+    opening, closing = controls.get("opening"), controls.get("closing")
+
+    tie_out, gap = None, None
+    if opening is not None and closing is not None:
+        gap = round(closing - (opening + credits - debits), 2)
+        tie_out = abs(gap) <= 0.01
+
+    status = "reconciled" if (tie_out and unresolved == 0) else "needs_review"
+    return {
+        "status": status,
+        "tie_out": tie_out,
+        "gap": gap,
+        "unresolved_count": unresolved,
+        "computed_credits": credits,
+        "computed_debits": debits,
+        "opening": opening,
+        "closing": closing,
+        "stated_total_credits": controls.get("total_credits"),
+        "stated_total_debits": controls.get("total_debits"),
+    }
+
+
 def _parse_via_llm(text, account, api_key, model=None, record_usage=None):
     """LLM-based transaction parser for Approach A (swappable with _parse_via_regex)."""
     system_prompt = """You are an expert at parsing Australian bank statement text.
@@ -1306,8 +1550,25 @@ Rules:
 - Dates must be in DD/MM/YYYY format
 - debit = money OUT of account (positive number); null if not a debit
 - credit = money IN to account (positive number); null if not a credit
-- balance = running balance after the transaction (positive number); null if not shown
-- Do NOT include opening balance rows, closing balance rows, or summary lines
+- ALWAYS capture balance = the running balance shown for/after the transaction (positive
+  number). In OCR'd statements the balance often appears on the line AFTER the
+  description (e.g. a "…  92,519.18 Cr" line) — associate it with the transaction it
+  belongs to, in order. Only use null when no running balance is shown at all.
+- For the amount: if the debit/credit is printed, read it. If the amount column is NOT
+  legible but the running balances are, COMPUTE the amount as the movement in the running
+  balance: amount = this_balance − previous_balance (a positive movement is a credit, a
+  negative movement is a debit). This is exact arithmetic, not guessing — do it whenever
+  the balances are available. Only if NEITHER the amount NOR a usable pair of balances is
+  available, set debit and credit to null.
+- INCLUDE every "Brought forward" / opening-balance / "Statement Opening Balance" row you
+  encounter (with its balance), so the running balance has an anchor. A single statement
+  text may contain SEVERAL of these if it spans multiple periods merged together (e.g. one
+  per quarter) — include ALL of them, not just the first.
+- EXCLUDE every "Closing Balance" / "Statement Closing Balance" / period-summary row you
+  encounter — ALL occurrences, not just the last one in the text. A merged multi-page
+  statement covering several periods will have MULTIPLE closing-balance lines scattered
+  through it (one per period boundary, not only at the very end); every single one of them
+  must be dropped, none should ever appear as a transaction row in your output.
 - Strip currency symbols and commas from numeric values (e.g. "$1,234.56" → 1234.56)
 """
     user_content = (
@@ -1323,10 +1584,11 @@ Rules:
     if record_usage:
         acc_num = account.get('number', 'unknown')
         record_usage(f'phase2_extract_txns_{acc_num}', 'phase2', usage)
-    return json.loads(res)
+    parsed = _lenient_json_loads(res, context=f"transaction extraction for account {account.get('number', 'unknown')}")
+    return parsed if isinstance(parsed, dict) else {"transactions": []}
 
 
-def extract_transactions_from_statement(pdf_path, account, api_key, model=None, record_usage=None):
+def extract_transactions_from_statement(pdf_path, account, api_key, model=None, record_usage=None, controls_out=None):
     """Extract structured transaction rows from a bank statement PDF (Approach A — LLM-based).
 
     Returns a list of transaction dicts: { date, description, debit, credit, balance, raw_line }.
@@ -1359,7 +1621,12 @@ def extract_transactions_from_statement(pdf_path, account, api_key, model=None, 
             ocr_parts = []
             for page_idx in range(total_pages):
                 try:
-                    ocr_parts.append(ocr_pdf_single_page(pdf_path, page_idx, scratch_dir))
+                    # Statement-scoped high-fidelity OCR (300 DPI, psm 6) to retain the
+                    # amount/balance columns of dense columnar statements.
+                    ocr_parts.append(ocr_pdf_single_page(
+                        pdf_path, page_idx, scratch_dir,
+                        dpi=STATEMENT_OCR_DPI, psm=STATEMENT_OCR_PSM,
+                    ))
                 except Exception:
                     pass
             if ocr_parts:
@@ -1367,8 +1634,45 @@ def extract_transactions_from_statement(pdf_path, account, api_key, model=None, 
         except Exception as e:
             raise RuntimeError(f"OCR fallback failed for {pdf_path}: {e}")
 
+    # Collapse dot-leader runs so amounts adjacent to leaders survive parsing.
+    text = _clean_statement_text(text)
+
+    # Capture the statement's own control totals (audit anchors) for tie-out validation.
+    controls = _parse_statement_controls(text)
+    if controls_out is not None:
+        controls_out.update(controls)
+
     result = _parse_via_llm(text, account, api_key, model=model, record_usage=record_usage)
     transactions = result.get("transactions", [])
+
+    # Deterministic backstop: the extraction prompt already tells the model to exclude
+    # every closing-balance/period-summary row, but that's a prompt instruction, not a
+    # guarantee — models vary in how reliably they follow "every occurrence" across a
+    # merged multi-period statement (see docs/RECONCILIATION_CLOSING_BALANCE_LEAK_FIX.md).
+    # Strip any row that slipped through regardless of which model extracted it, so this
+    # bug class can't recur no matter how the prompt is worded.
+    _before = len(transactions)
+    transactions = [t for t in transactions if not _is_closing_balance_row(t.get("description", ""))]
+    if len(transactions) != _before:
+        print(
+            f"[Phase 2] Dropped {_before - len(transactions)} closing-balance row(s) "
+            f"the extractor didn't exclude for account {account.get('number')}",
+            file=sys.stderr,
+        )
+
+    # Audit-grounded resolution: trust only corroborated amounts (present in text OR equal
+    # to the balance movement); reject uncorroborated reads; derive from balances where
+    # possible; mark the rest 'unresolved'. Never fabricate a number.
+    transactions = _resolve_statement_amounts(transactions, text, controls)
+    _stat = defaultdict(int)
+    for t in transactions:
+        if not t.get("is_opening_balance"):
+            _stat[t.get("amount_status", "unresolved")] += 1
+    print(
+        f"[Phase 2] Amount resolution for account {account.get('number')}: "
+        + ", ".join(f"{k}={v}" for k, v in sorted(_stat.items())),
+        file=sys.stderr,
+    )
 
     if not transactions and len(text.strip()) > 50:
         print(
@@ -1531,14 +1835,40 @@ def _extract_supporting_doc_text(doc_path, scratch_dir=None):
     return '\n'.join(ocr_pages).strip()
 
 
+def _count_amount_occurrences(amount, text, tol=0.01):
+    """How many times `amount` (to the cent) appears as a monetary figure in `text`."""
+    if amount is None or not text:
+        return 0
+    count = 0
+    for m in _RECON_AMOUNT_RE.findall(text):
+        v = _recon_parse_amount(m)
+        if v is not None and abs(v - amount) <= tol:
+            count += 1
+    return count
+
+
 def build_reconciliation_prompt(phase2_context, transactions_by_account, scratch_dir=None):
     """Build the (system_prompt, user_content) pair for the reconciliation LLM call.
 
     Preamble: reconciliation notes (if present).
     Subject: all transactions across all accounts.
     Evidence: supporting document text excerpts (OCR fallback for scanned PDFs; structured
-    extraction for Portfolio Valuations).
+    extraction for Portfolio Valuations), annotated with a recurring-amount note when a
+    document's evidence for an amount is scarcer than the number of transactions sharing
+    that amount — the model tends to double-count a single document across multiple
+    transactions unless this is called out explicitly (see CRITICAL GUARDRAILS below).
     """
+    # Count how often each transaction amount recurs across the full transaction set, so a
+    # document that only substantiates ONE occurrence of a recurring amount can be flagged
+    # before it gets claimed by more than one transaction.
+    recurring_amounts = Counter()
+    for transactions in transactions_by_account.values():
+        for tx in transactions:
+            if tx.get("is_opening_balance"):
+                continue
+            amt = tx.get("debit") or tx.get("credit")
+            if amt:
+                recurring_amounts[round(float(amt), 2)] += 1
     # Reconciliation notes preamble
     notes_preamble = ""
     notes_path = phase2_context.get("reconciliation_notes_path")
@@ -1575,8 +1905,30 @@ def build_reconciliation_prompt(phase2_context, transactions_by_account, scratch
             if "Portfolio Valuation" in doc_category:
                 doc_text = _extract_portfolio_holdings(doc_text, doc_name)
             if doc_text:
+                # Raw occurrence counts overcount: a single-period document routinely restates
+                # its own figure 2-3x (e.g. a payslip's period amount, deduction line, and
+                # total are ONE contribution, not three). We can't reliably tell a genuine
+                # multi-period document apart from same-period restatement by regex alone, so
+                # the safe default is to always cap the claim at 1 — under-claiming just means
+                # a legitimate match needs a human look; over-claiming reproduces the original
+                # double-counting bug.
+                notes = []
+                for amt, tx_count in recurring_amounts.items():
+                    if tx_count < 2:
+                        continue
+                    if _count_amount_occurrences(amt, doc_text) >= 1:
+                        notes.append(
+                            f"NOTE: ${amt:,.2f} recurs in {tx_count} of the bank transactions "
+                            f"below. This document is evidence for AT MOST 1 of those "
+                            f"transactions, even if the figure appears more than once in the "
+                            f"text here (repeats within one document are usually the same "
+                            f"instance restated, e.g. a period amount and its total) — match "
+                            f"only the single best-fitting one (e.g. by nearest date) and leave "
+                            f"the rest unmatched, needing separate supporting evidence."
+                        )
+                notes_block = ("\n".join(notes) + "\n\n") if notes else ""
                 supporting_docs_lines.append(
-                    f"=== {doc_name} (Category: {doc_category}) ===\n{doc_text}"
+                    f"=== {doc_name} (Category: {doc_category}) ===\n{notes_block}{doc_text}"
                 )
         except Exception:
             continue
@@ -1597,6 +1949,10 @@ def build_reconciliation_prompt(phase2_context, transactions_by_account, scratch
                 break
         rows = []
         for i, tx in enumerate(transactions, 1):
+            # Opening "brought forward" rows are balance anchors, not transactions —
+            # don't ask the matcher to reconcile them.
+            if tx.get("is_opening_balance"):
+                continue
             debit = f"DR ${tx.get('debit')}" if tx.get("debit") else ""
             credit = f"CR ${tx.get('credit')}" if tx.get("credit") else ""
             amount = debit or credit or "Amount unknown"
@@ -1612,8 +1968,44 @@ def build_reconciliation_prompt(phase2_context, transactions_by_account, scratch
         "Do not include any text, explanation, or markdown before or after the JSON.\n\n"
         f"{notes_preamble}"
         "You are an expert SMSF auditor performing a bank reconciliation.\n\n"
-        "Your task: match each bank transaction against the supporting documents below and "
-        "classify it as 'matched' (evidence found) or 'unmatched' (no supporting document).\n\n"
+        "Your task: reconcile each bank transaction against the supporting documents below. "
+        "A transaction may ONLY be marked 'matched' when a supporting document corroborates "
+        "BOTH its narrative (counterparty / purpose) AND its amount. Narrative similarity "
+        "alone is NEVER sufficient — the amount must tie out. Use one of two matching methods:\n\n"
+        "1. ONE-TO-ONE (narrative + amount): a single supporting document contains an entry "
+        "or stated amount that EQUALS the transaction amount (to the cent) AND whose "
+        "narrative matches the transaction's counterparty/purpose. Set match_type "
+        '"one_to_one", matched_amount to that amount, matched_document to the filename, '
+        "match_group to null.\n"
+        "2. MANY-TO-ONE (sum tie-out): when several transactions share a similar narrative and "
+        "no single document matches each one individually, match them TOGETHER only if their "
+        "amounts SUM to an amount stated in ONE supporting document (e.g. 12 monthly super-"
+        "guarantee credits summing to the annual concessional-contribution total on an ATO "
+        "contribution statement). Give every transaction in that group the SAME match_group id "
+        '(e.g. "G1"), set match_type "many_to_one_sum", matched_document to that filename, and '
+        "matched_amount to the document total they collectively equal. Only do this when the "
+        "group sum equals the document amount (allow rounding to the cent).\n"
+        "3. Otherwise the transaction is UNMATCHED.\n\n"
+        "CRITICAL GUARDRAILS:\n"
+        "- A summary / annual-total / cap document (e.g. an ATO contribution statement or TSB "
+        "report showing yearly totals or caps, an annual tax statement) is CORROBORATING ONLY. "
+        "NEVER mark an individual deposit 'matched' to it by narrative alone. Match such "
+        "documents ONLY via method 2 (sum tie-out) and ONLY when the amounts actually add up; "
+        "if the group does not sum to a stated total, mark those transactions unmatched.\n"
+        "- Do NOT reuse the same document entry/amount to match more than one transaction or "
+        "group (no double-counting). Example: if four bank transactions all show $1,951.05 "
+        "(e.g. quarterly super-guarantee payments that happen to be identical because salary "
+        "was flat), but a single payslip document only states $1,951.05 for ONE pay period, "
+        "that document is evidence for exactly ONE of those transactions — not all four, even "
+        "though the figure repeats within the document itself (e.g. as a period amount, a "
+        "subtotal, and a total on the same payslip; those are restatements of ONE contribution, "
+        "not separate ones). Match the single best-fitting transaction (e.g. by nearest date) "
+        "and leave the remaining occurrences unmatched, with a reason noting that additional "
+        "documents (for the other periods) are needed — do NOT match them to an unrelated "
+        "document just because it mentions a similar or different amount.\n"
+        "- A 'NOTE:' line under a supporting document tells you exactly how many transactions "
+        "may legitimately be one_to_one matched to that document for a specific recurring "
+        "amount — never exceed that count for that document/amount pair.\n\n"
         "## SUPPORTING DOCUMENTS\n\n"
         f"{supporting_docs_block}\n\n"
         "## REQUIRED JSON SCHEMA\n"
@@ -1630,8 +2022,11 @@ def build_reconciliation_prompt(phase2_context, transactions_by_account, scratch
         '          "credit": null,\n'
         '          "type": "debit or credit",\n'
         '          "status": "matched or unmatched",\n'
+        '          "match_type": "one_to_one | many_to_one_sum | unmatched",\n'
         '          "matched_document": "exact supporting document filename, or null if unmatched",\n'
-        '          "unmatched_reason": "if unmatched: specific reason no supporting document was found and what documentation would resolve it; null if matched"\n'
+        '          "matched_amount": "the document amount this transaction (one_to_one) or its group (many_to_one_sum) ties out to, as a number; null if unmatched",\n'
+        '          "match_group": "shared id (e.g. G1) for transactions that jointly sum-match one document; null for one_to_one and unmatched",\n'
+        '          "unmatched_reason": "if unmatched: specific reason no supporting document corroborated the narrative AND amount, and what documentation would resolve it; null if matched"\n'
         "        }\n"
         "      ]\n"
         "    }\n"
@@ -1639,12 +2034,16 @@ def build_reconciliation_prompt(phase2_context, transactions_by_account, scratch
         "}\n\n"
         "Rules:\n"
         "- Every transaction must have status 'matched' or 'unmatched' — no other values\n"
+        "- status 'matched' requires match_type 'one_to_one' or 'many_to_one_sum'; status "
+        "'unmatched' requires match_type 'unmatched'\n"
         "- matched_document: exact filename from the supporting documents list above, or null\n"
+        "- matched_amount: numeric; for many_to_one_sum it is the document total the group equals\n"
+        "- match_group: same id for all members of a sum-match group; null otherwise\n"
         "- unmatched_reason: null for matched transactions; for unmatched, explain specifically "
-        "what is missing (e.g. 'No invoice found for this payment — a supplier invoice for "
-        "$X dated DD/MM would resolve this')\n"
-        "- Internal transfers between fund accounts are self-matched (set matched_document to "
-        "the receiving/sending account name)\n"
+        "what is missing (e.g. 'No invoice found — a supplier invoice for $X dated DD/MM would "
+        "resolve this', or 'These credits do not sum to any contribution total on file')\n"
+        "- Internal transfers between fund accounts are self-matched when the amounts agree "
+        "(set matched_document to the receiving/sending account name)\n"
         "- Include ALL transactions in order — do not omit any\n"
         "- Respond with ONLY the JSON object — no other text\n"
     )
@@ -1669,6 +2068,7 @@ def run_reconciliation_call(phase2_context, api_key, update_progress,
     Pass `transactions_by_account` to skip extraction (useful for benchmarking multiple models
     against the same pre-extracted transactions).
     """
+    controls_by_account = {}
     if transactions_by_account is None:
         transactions_by_account = {}
         for account in phase2_context.get("bank_accounts", []):
@@ -1681,9 +2081,24 @@ def run_reconciliation_call(phase2_context, api_key, update_progress,
                 )
                 continue
             update_progress(None, f"Phase 2: Parsing transactions for {account['name']}...")
-            transactions = extract_transactions_from_statement(
-                statement_path, account, api_key, model=model, record_usage=record_usage
-            )
+            try:
+                _ctrl = {}
+                transactions = extract_transactions_from_statement(
+                    statement_path, account, api_key, model=model, record_usage=record_usage,
+                    controls_out=_ctrl,
+                )
+                controls_by_account[account["number"]] = _ctrl
+            except Exception as e:
+                # A single statement that fails to parse must not abort reconciliation
+                # of the remaining accounts. Skip it with a warning; it will simply have
+                # no extracted transactions.
+                print(
+                    f"[Phase 2] WARNING: transaction extraction failed for account "
+                    f"{account.get('number')} ({account.get('name')}): {e}",
+                    file=sys.stderr,
+                )
+                update_progress(None, f"Phase 2: Could not parse statement for {account['name']} — skipping.")
+                transactions = []
             if transactions:
                 transactions_by_account[account["number"]] = transactions
 
@@ -1704,7 +2119,7 @@ def run_reconciliation_call(phase2_context, api_key, update_progress,
     )
     if record_usage:
         record_usage('phase2_reconcile', 'phase2', usage)
-    result = json.loads(res)
+    result = _lenient_json_loads(res, context="bank reconciliation") or {}
 
     reconciliation_results = {}
     for account_result in result.get("reconciliation_results", []):
@@ -1712,7 +2127,294 @@ def run_reconciliation_call(phase2_context, api_key, update_progress,
         if acc_num:
             reconciliation_results[acc_num] = account_result
 
+    # Overlay authoritative extracted amounts/balances (the matcher LLM does not reliably
+    # echo them, and it never saw the opening-balance anchor rows). Align by index against
+    # the non-opening source transactions the matcher was actually given.
+    for acc_num, account_result in reconciliation_results.items():
+        src = [t for t in transactions_by_account.get(acc_num, []) if not t.get("is_opening_balance")]
+        out = account_result.get("transactions", []) or []
+        if len(src) == len(out):
+            for s, o in zip(src, out):
+                for k in ("debit", "credit", "balance", "amount_status"):
+                    if k in s:
+                        o[k] = s.get(k)
+        else:
+            print(
+                f"[Phase 2] amount overlay skipped for {acc_num}: matcher returned "
+                f"{len(out)} rows vs {len(src)} extracted — using matcher amounts as-is.",
+                file=sys.stderr,
+            )
+        # Attach the statement's control totals and compute the audit tie-out.
+        ctrl = controls_by_account.get(acc_num, {})
+        account_result["controls"] = ctrl
+        account_result["reconciliation"] = _compute_statement_reconciliation(account_result, ctrl)
+
     return reconciliation_results
+
+
+def _recon_parse_amount(v):
+    """Parse a money value (number or string like '$1,234.56 CR') to a float, else None."""
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    s = str(v).upper().replace("$", "").replace(",", "").replace("CR", "").replace("DR", "").strip()
+    if not s:
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def _recon_txn_amount(tx):
+    """The absolute magnitude of a reconciled transaction (credit or debit)."""
+    for k in ("credit", "debit", "amount"):
+        a = _recon_parse_amount(tx.get(k))
+        if a:
+            return abs(a)
+    return None
+
+
+def _recon_mark_unmatched(tx, reason):
+    tx["status"] = "unmatched"
+    tx["match_type"] = "unmatched"
+    tx["matched_document"] = None
+    tx["matched_amount"] = None
+    tx["match_group"] = None
+    tx["is_internal_transfer"] = False
+    tx["internal_transfer_ref"] = None
+    tx["unmatched_reason"] = reason
+
+
+def _recon_parse_date(s):
+    """Parse a transaction date string to a datetime, else None."""
+    if not s:
+        return None
+    for fmt in ("%d/%m/%Y", "%d/%m/%y", "%Y-%m-%d", "%d-%m-%Y"):
+        try:
+            return datetime.datetime.strptime(str(s).strip(), fmt)
+        except (ValueError, TypeError):
+            continue
+    return None
+
+
+_RECON_AMOUNT_RE = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+\.\d{1,2}|\d+")
+
+
+def _extract_amounts_from_text(text):
+    """Set of monetary amounts (floats, rounded to cents) appearing in a document's text."""
+    out = set()
+    for m in _RECON_AMOUNT_RE.findall(text or ""):
+        v = _recon_parse_amount(m)
+        if v is not None:
+            out.add(round(v, 2))
+    return out
+
+
+def _amount_in_doc(amount, amt_set, tol=0.01):
+    """True if `amount` appears in the document's extracted amount set (within tolerance)."""
+    if amount is None or not amt_set:
+        return False
+    return any(abs(amount - a) <= tol for a in amt_set)
+
+
+def _recon_mark_internal_transfer(tx, other_acc_num, other_idx, other_acc_name):
+    """Mark a transaction as a bank-to-bank transfer, linking to the counter-leg."""
+    tx["status"] = "matched"
+    tx["match_type"] = "internal_transfer"
+    tx["is_internal_transfer"] = True
+    label = f"{other_acc_name} ({other_acc_num})" if other_acc_name else str(other_acc_num)
+    tx["matched_document"] = label  # legacy field kept so older UIs still link
+    tx["matched_amount"] = _recon_txn_amount(tx)
+    tx["match_group"] = None
+    tx["internal_transfer_ref"] = {"account_number": str(other_acc_num), "index": other_idx}
+    tx["unmatched_reason"] = None
+
+
+def mark_no_evidence_transactions(reconciliation_results):
+    """Mark transactions that inherently have no external supporting evidence as matched
+    (so they don't sit as 'unmatched' or spawn client queries). Currently: bank-credited
+    interest (a credit whose narrative is interest). Overrides any prior LLM match."""
+    n = 0
+    for acc in reconciliation_results.values():
+        for t in acc.get("transactions", []) or []:
+            if t.get("is_opening_balance"):
+                continue
+            is_credit = _recon_parse_amount(t.get("credit")) is not None
+            if is_credit and _INTEREST_CREDIT_RE.search(t.get("description", "") or ""):
+                t["status"] = "matched"
+                t["match_type"] = "no_evidence_required"
+                t["matched_document"] = None
+                t["matched_amount"] = _recon_txn_amount(t)
+                t["match_group"] = None
+                t["is_internal_transfer"] = False
+                t["internal_transfer_ref"] = None
+                t["unmatched_reason"] = None
+                t["no_evidence_reason"] = "Bank-credited interest — no external evidence required."
+                n += 1
+    return n
+
+
+_TRANSFER_KEYWORDS = ("sweep", "transfer", " trf", "trf ", "internal transfer", "inter-account")
+
+
+def detect_internal_transfers(reconciliation_results, tolerance=0.01, max_window_days=120):
+    """Deterministically pair bank-to-bank transfers across the fund's accounts. A pair is
+    two transactions on DIFFERENT accounts with equal amount, OPPOSITE direction (one debit,
+    one credit), at least one leg's narrative containing a transfer keyword, and dates within
+    a generous sanity bound (legs often clear weeks apart, and OCR dates drift — so date is
+    used to pick the NEAREST candidate, not as a tight cutoff). Each leg is marked as an
+    internal transfer linking to the other. Overrides any prior (LLM) match on those legs.
+    Returns the number of transactions marked."""
+    legs = []  # (acc_num, acc_name, idx, amount, direction, date, desc_lower)
+    for acc_num, acc in reconciliation_results.items():
+        acc_name = acc.get("account_name", acc_num)
+        for idx, tx in enumerate(acc.get("transactions", []) or []):
+            if tx.get("is_opening_balance") or tx.get("match_type") == "no_evidence_required":
+                continue
+            amt = _recon_txn_amount(tx)
+            if not amt:
+                continue
+            if _recon_parse_amount(tx.get("credit")):
+                direction = "credit"
+            elif _recon_parse_amount(tx.get("debit")):
+                direction = "debit"
+            else:
+                continue
+            legs.append((acc_num, acc_name, idx, amt, direction,
+                         _recon_parse_date(tx.get("date")), (tx.get("description") or "").lower()))
+
+    # Build candidate pairs, then greedily match nearest-date-first so each leg is used once.
+    candidates = []  # (date_diff, i, j)
+    for i in range(len(legs)):
+        for j in range(i + 1, len(legs)):
+            a, b = legs[i], legs[j]
+            if a[0] == b[0]:
+                continue  # same account
+            if abs(a[3] - b[3]) > tolerance:
+                continue  # amounts must match
+            if a[4] == b[4]:
+                continue  # need opposite direction (one out, one in)
+            if not (any(k in a[6] for k in _TRANSFER_KEYWORDS)
+                    or any(k in b[6] for k in _TRANSFER_KEYWORDS)):
+                continue  # at least one leg must read like a transfer
+            if a[5] and b[5]:
+                dd = abs((a[5] - b[5]).days)
+                if dd > max_window_days:
+                    continue
+            else:
+                dd = 10 ** 6  # unknown dates: lowest priority but still eligible
+            candidates.append((dd, i, j))
+
+    candidates.sort(key=lambda c: c[0])
+    used = set()
+    marked = 0
+    for _dd, i, j in candidates:
+        if i in used or j in used:
+            continue
+        a, b = legs[i], legs[j]
+        tx_a = reconciliation_results[a[0]]["transactions"][a[2]]
+        tx_b = reconciliation_results[b[0]]["transactions"][b[2]]
+        _recon_mark_internal_transfer(tx_a, b[0], b[2], b[1])
+        _recon_mark_internal_transfer(tx_b, a[0], a[2], a[1])
+        used.add(i)
+        used.add(j)
+        marked += 2
+    return marked
+
+
+def _build_doc_amount_index(phase2_context, scratch_dir):
+    """Map each supporting document's classified filename -> set of amounts in its text.
+    Reuses the same text extraction (with cached OCR) as the reconciliation prompt, so the
+    tie-out can confirm a matched amount actually appears in the cited document."""
+    doc_amounts = {}
+    for doc in phase2_context.get("supporting_documents", []) or []:
+        name = doc.get("classified_name") or ""
+        path = doc.get("path")
+        if not name or not path or not os.path.exists(path):
+            continue
+        try:
+            txt = _extract_supporting_doc_text(path, scratch_dir)
+        except Exception:
+            txt = ""
+        if txt:
+            doc_amounts[name] = _extract_amounts_from_text(txt)
+    return doc_amounts
+
+
+
+def verify_sum_matches(reconciliation_results, doc_amounts=None, tolerance=0.01):
+    """Document-grounded tie-out over the LLM's reconciliation output. The LLM's
+    `matched_amount` field is self-reported (it tends to just echo the transaction's own
+    amount), so we verify against the ACTUAL supporting-document text (`doc_amounts`:
+    filename -> set of amounts found in that document), not against the LLM's claim:
+      - one_to_one: the transaction amount must literally appear in the matched document.
+        If we have that document's amounts and the amount is absent -> downgrade to unmatched.
+      - many_to_one_sum: the group's amounts must sum to the tied-out figure AND that sum
+        (or target) must appear in the matched document.
+    Internal transfers (match_type 'internal_transfer') are left untouched — they are
+    verified separately by counter-leg pairing in detect_internal_transfers().
+    `doc_amounts` may be None/partial; when a document's amounts are unknown we do not
+    downgrade solely on that (avoids false negatives when OCR text is unavailable).
+    Returns the number of transactions downgraded to 'unmatched'."""
+    doc_amounts = doc_amounts or {}
+    downgraded = 0
+    for acc in reconciliation_results.values():
+        txs = acc.get("transactions", []) or []
+
+        # Verify many_to_one_sum groups
+        groups = defaultdict(list)
+        for tx in txs:
+            if (tx.get("status") == "matched"
+                    and tx.get("match_type") == "many_to_one_sum"
+                    and tx.get("match_group")):
+                groups[tx["match_group"]].append(tx)
+        for gid, members in groups.items():
+            target = _recon_parse_amount(members[0].get("matched_amount"))
+            total = sum((_recon_txn_amount(t) or 0.0) for t in members)
+            doc = members[0].get("matched_document")
+            amt_set = doc_amounts.get(doc)
+            sums_ok = target is not None and abs(total - target) <= tolerance
+            # The tied-out figure must actually be printed in the cited document (when known).
+            present_ok = (amt_set is None) or _amount_in_doc(total, amt_set, tolerance) \
+                or _amount_in_doc(target, amt_set, tolerance)
+            if not (sums_ok and present_ok):
+                reason = (
+                    f"Sum tie-out failed: {len(members)} '{gid}' transactions total {total:.2f}"
+                    + ("" if sums_ok else f" but the claimed total is {'unknown' if target is None else format(target, '.2f')}")
+                    + ("" if present_ok else " and that amount does not appear in the cited document")
+                    + "."
+                )
+                for t in members:
+                    _recon_mark_unmatched(t, reason)
+                    downgraded += 1
+
+        # Verify one_to_one matches against the actual document text
+        for tx in txs:
+            if tx.get("status") == "matched" and tx.get("match_type") == "one_to_one":
+                ta = _recon_txn_amount(tx)
+                doc = tx.get("matched_document")
+                amt_set = doc_amounts.get(doc)
+                if amt_set is not None and not _amount_in_doc(ta, amt_set, tolerance):
+                    _recon_mark_unmatched(
+                        tx,
+                        f"Amount not found in cited document: {('this transaction' if ta is None else format(ta, '.2f'))} "
+                        f"does not appear in '{doc}'. A document containing this exact amount would resolve it.",
+                    )
+                    downgraded += 1
+                    continue
+                # Fallback contradiction check when the document's amounts are unknown.
+                ma = _recon_parse_amount(tx.get("matched_amount"))
+                if amt_set is None and ta is not None and ma is not None and abs(ta - ma) > tolerance:
+                    _recon_mark_unmatched(
+                        tx,
+                        f"Amount tie-out failed: transaction {ta:.2f} does not equal the "
+                        f"matched supporting-document amount {ma:.2f}.",
+                    )
+                    downgraded += 1
+
+    return downgraded
 
 
 def build_query_generation_prompt(unmatched_transactions, fund_name):
@@ -1805,7 +2507,7 @@ def run_query_generation_call(unmatched_transactions, fund_name, api_key, update
     )
     if record_usage:
         record_usage('phase2_query_gen', 'phase2', usage)
-    result = json.loads(res)
+    result = _lenient_json_loads(res, context="query generation") or {}
     queries = result.get("queries", [])
 
     if not queries and unmatched_transactions:
@@ -2084,7 +2786,7 @@ def run_coarse_query_text_call(coarse_groups, fund_name, api_key, update_progres
     )
     if record_usage:
         record_usage('phase2_coarse_query_text', 'phase2', usage)
-    result = json.loads(res)
+    result = _lenient_json_loads(res, context="coarse query text") or {}
     groups_out = result.get('groups', [])
     mapping = {g['category']: g.get('query_text', '') for g in groups_out if 'category' in g}
     print(
@@ -2209,7 +2911,7 @@ def classify_transactions(unmatched_transactions, categories, fund_name, api_key
     )
     if record_usage:
         record_usage('phase2_classify_transactions', 'phase2', usage)
-    result = json.loads(res)
+    result = _lenient_json_loads(res, context="transaction categorisation") or {}
     classified = result.get('classified', [])
 
     # Build index → category map, validate as we go
@@ -2339,11 +3041,12 @@ def regroup_stored_queries(existing_queries, fund_name, api_key, update_progress
     return new_queries, True, 1.0
 
 
-def run_bank_reconciliation_phase(job_id, fund_profile, job_type, api_key, scratch_dir, update_progress, record_usage=None):
+def run_bank_reconciliation_phase(job_id, fund_profile, job_type, api_key, scratch_dir, update_progress, record_usage=None, model=None):
     """Phase 2 orchestrator: classify context → extract transactions → reconcile → generate queries.
 
     Returns { phase2_context, reconciliation_results, queries, summary }.
     """
+    model = model or PHASE2_DEFAULT_MODEL
     jobs_db_path = os.path.join(os.getcwd(), "jobs_db.json")
     job_record = None
     if os.path.exists(jobs_db_path):
@@ -2359,9 +3062,53 @@ def run_bank_reconciliation_phase(job_id, fund_profile, job_type, api_key, scrat
 
     update_progress(None, "Phase 2: Running bank transaction reconciliation...")
     reconciliation_results = run_reconciliation_call(
-        phase2_context, api_key, update_progress,
+        phase2_context, api_key, update_progress, model=model,
         record_usage=record_usage, scratch_dir=scratch_dir,
     )
+
+    # (0a) Any transaction whose amount could not be corroborated (unresolved) must not be
+    # auto-matched — force it to unmatched with a clear reason so it surfaces for review
+    # rather than riding on a fabricated amount.
+    _unresolved = 0
+    for _acc in reconciliation_results.values():
+        for _t in _acc.get("transactions", []) or []:
+            if _t.get("is_opening_balance"):
+                continue
+            if _t.get("amount_status") == "unresolved":
+                _recon_mark_unmatched(
+                    _t,
+                    "Amount could not be read from the statement or reconciled from the "
+                    "running balance — verify the amount from the source statement.",
+                )
+                _unresolved += 1
+    if _unresolved:
+        update_progress(None, f"Phase 2: {_unresolved} transaction(s) have an unresolved amount — flagged for review.")
+
+    # (0b) Mark transactions that inherently need no external evidence (bank interest) as
+    # matched, so they don't show as unmatched or generate queries.
+    _noev = mark_no_evidence_transactions(reconciliation_results)
+    if _noev:
+        update_progress(None, f"Phase 2: {_noev} interest transaction(s) marked as needing no external evidence.")
+
+    # (1) Deterministically pair bank-to-bank transfers across the fund's accounts, so a
+    # sweep between fund accounts self-matches to its counter-leg instead of being (mis)
+    # matched to an unrelated supporting document.
+    _transfers = detect_internal_transfers(reconciliation_results)
+    if _transfers:
+        update_progress(None, f"Phase 2: linked {_transfers} bank-to-bank transfer leg(s).")
+
+    # (2) Document-grounded amount tie-out: the LLM's matched_amount just echoes the
+    # transaction amount, so verify each match against the ACTUAL supporting-document text.
+    # A one_to_one match whose amount is absent from the cited document, or a sum-group
+    # whose total is not printed there, is downgraded to 'unmatched' (flows to queries).
+    doc_amounts = _build_doc_amount_index(phase2_context, scratch_dir)
+    _downgraded = verify_sum_matches(reconciliation_results, doc_amounts=doc_amounts)
+    if _downgraded:
+        update_progress(
+            None,
+            f"Phase 2: {_downgraded} transaction(s) failed the document-grounded amount "
+            "tie-out and were moved to unmatched.",
+        )
 
     # Story 3R: collect unmatched transactions, group deterministically, generate queries
     total = matched = unmatched_count = 0
@@ -2370,6 +3117,8 @@ def run_bank_reconciliation_phase(job_id, fund_profile, job_type, api_key, scrat
 
     for acc_num, acc_result in reconciliation_results.items():
         for tx in acc_result.get("transactions", []):
+            if tx.get("is_opening_balance"):
+                continue  # balance anchor, not a reconcilable transaction
             total += 1
             if tx.get("status") == "matched":
                 matched += 1
@@ -2385,10 +3134,10 @@ def run_bank_reconciliation_phase(job_id, fund_profile, job_type, api_key, scrat
     if unmatched_transactions:
         categories = load_transaction_categories(os.getcwd())
         classified_txs = classify_transactions(
-            unmatched_transactions, categories, fund_name, api_key, record_usage=record_usage
+            unmatched_transactions, categories, fund_name, api_key, model=model, record_usage=record_usage
         )
         queries = _build_queries_from_classified(
-            classified_txs, categories, fund_name, api_key, update_progress, record_usage=record_usage
+            classified_txs, categories, fund_name, api_key, update_progress, model=model, record_usage=record_usage
         )
     else:
         update_progress(None, 'Phase 2: No unmatched transactions — skipping query generation.')
@@ -2405,33 +3154,33 @@ def run_bank_reconciliation_phase(job_id, fund_profile, job_type, api_key, scrat
     }
 
 
-def run_ai_processor_phase(folder_path, run_id, fund_profile, job_type, api_key, scratch_dir, update_progress, record_usage=None):
+def run_ai_processor_phase(folder_path, run_id, fund_profile, job_type, api_key, scratch_dir, update_progress, record_usage=None, model=None):
     """Runs Phase 1: Scans directory, extracts texts/OCR, and suggests classifications."""
     # Staging folder in run_id directory
     run_dir = os.path.join(os.getcwd(), run_id)
     staging_dir = os.path.join(run_dir, "staging")
     os.makedirs(staging_dir, exist_ok=True)
-    
+
     update_progress(10, "AI Processor: Scanning input folder...")
-    
+
     # We will copy the files to the staging folder while running classification
     # Run the classification engine
     processed, unprocessed = classify_papers(
         folder_path, staging_dir, fund_profile, api_key, scratch_dir, update_progress, job_type,
-        record_usage=record_usage,
+        record_usage=record_usage, model=model,
     )
-    
+
     return processed, unprocessed
 
-def run_ai_reviewer_phase(run_id, fund_profile, job_type, api_key, scratch_dir, update_progress, record_usage=None):
+def run_ai_reviewer_phase(run_id, fund_profile, job_type, api_key, scratch_dir, update_progress, record_usage=None, model=None):
     """Runs Phase 2: Performs dynamic lead schedule calculations and checklist verifications."""
     run_dir = os.path.join(os.getcwd(), run_id)
     workpapers_dir = os.path.join(run_dir, "workpaper")
     os.makedirs(workpapers_dir, exist_ok=True)
-    
+
     update_progress(70, "AI Reviewer: Reconciling ledger balances and validating checklist...")
     results = reconcile_papers(
         workpapers_dir, fund_profile, api_key, scratch_dir, update_progress, job_type,
-        record_usage=record_usage,
+        record_usage=record_usage, model=model,
     )
     return results

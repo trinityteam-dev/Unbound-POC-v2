@@ -3,6 +3,7 @@ import { api } from './client'
 import { JOBS_LIST_POLL_MS, jobPollInterval } from '../lib/polling'
 import type {
   CreateJobPayload,
+  FundConfig,
   Playbook,
   ProcessorReviewPayload,
   QueryStatusPayload,
@@ -37,6 +38,47 @@ export function useFunds() {
   return useQuery({
     queryKey: ['funds'],
     queryFn: api.getFunds,
+  })
+}
+
+/** Selectable OpenRouter models (friendly label + model id) — static config. */
+export function useModels() {
+  return useQuery({
+    queryKey: ['models'],
+    queryFn: api.getModels,
+    staleTime: Infinity,
+  })
+}
+
+/**
+ * Unregistered fund folders under data/ (Story 10) — polled with the jobs
+ * list cadence so a folder dropped while the app is open surfaces without
+ * a refresh.
+ */
+export function useDiscoverFunds() {
+  return useQuery({
+    queryKey: ['discovered-funds'],
+    queryFn: api.discoverFunds,
+    refetchInterval: JOBS_LIST_POLL_MS,
+  })
+}
+
+/** AI-scan discovered folders into proposed fund configs (15–30s per folder). */
+export function useBootstrapFunds() {
+  return useMutation({
+    mutationFn: (folders: string[]) => api.bootstrapFunds(folders),
+  })
+}
+
+/** Register (upsert) a full fund config; refreshes funds + discovery. */
+export function useRegisterFund() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (fund: FundConfig) => api.registerFund(fund),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['funds'] })
+      qc.invalidateQueries({ queryKey: ['discovered-funds'] })
+    },
   })
 }
 

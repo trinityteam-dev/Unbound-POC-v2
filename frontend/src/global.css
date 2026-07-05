@@ -159,6 +159,46 @@ body {
   color: var(--i1);
 }
 
+/* Sidebar engine picker: sits flush in the navy chrome instead of a plain
+   white Mantine field, glows teal on focus/hover. */
+.engine-select-input {
+  background: var(--hv) !important;
+  border: 1px solid var(--ln) !important;
+  color: var(--s1) !important;
+  font-weight: 600;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+.engine-select-input::placeholder {
+  color: var(--s3);
+}
+.engine-select-input:hover {
+  border-color: var(--ab);
+}
+.engine-select-input:focus {
+  border-color: var(--tl);
+  box-shadow: 0 0 0 2px var(--tn);
+}
+.engine-select-dropdown {
+  background: var(--pn) !important;
+  border: 1px solid var(--ab) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.engine-select-option {
+  color: var(--s2);
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+.engine-select-option:hover,
+.engine-select-option[aria-selected='true'],
+.engine-select-option[data-combobox-selected='true'] {
+  background: var(--hv);
+  color: var(--s1);
+}
+.engine-select-option[data-checked='true'] {
+  color: var(--tl);
+  font-weight: 600;
+}
+
 /* ── Themed scrollbars: thin, translucent accent thumb, transparent track ── */
 .scroll-accent {
   scrollbar-width: thin;
