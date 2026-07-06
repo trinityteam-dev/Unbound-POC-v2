@@ -182,6 +182,10 @@ export interface Job {
   // OpenRouter model id the job ran (and will continue running Phase 2) with.
   // Null/absent on jobs created before model selection existed.
   model?: string | null
+  // ISO date of the 30 June this audit is FOR, e.g. "2024-06-30" for FY23-24. Snapshotted
+  // from the fund's config at job creation — see docs/CLASSIFICATION_AUDIT_YEAR_FIX.md.
+  // Absent on jobs created before this field existed.
+  financial_year_end?: string | null
 }
 
 export interface JobDetail extends Job {

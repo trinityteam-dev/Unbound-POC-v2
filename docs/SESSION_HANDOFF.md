@@ -9,7 +9,7 @@ section wholesale; only condense a workstream once its detail lives in its own
 
 | Workstream | Status | Last updated |
 |---|---|---|
-| [Classification playbook](#classification-playbook) | Done — deferred decisions open | 2026-07-02 |
+| [Classification playbook](#classification-playbook) | Done — deferred decisions + audit-year default open | 2026-07-05 |
 | [Reconciliation hardening](#reconciliation-hardening) | In progress — Step 2 (OCR engine swap) + Phase-2 hang-hardening open | 2026-07-05 |
 | [Bank account discovery & statement splitting](#bank-account-discovery--statement-splitting) | In progress — one fund fixed, backstop deferred | 2026-07-05 |
 | [Cross-cutting](#cross-cutting) | — | 2026-07-02 |
@@ -79,6 +79,58 @@ classify JSON parsed via `_lenient_json_loads`.
 
 **Detailed docs:** `docs/CLASSIFICATION_PLAYBOOK_REFACTOR.md` (full refactor story +
 post-fixes: contribution/TSB, wrap wording, de-dup).
+
+### Update 2026-07-05 — "the audit year" had no anchor; fund config now has one
+
+`docs/CLASSIFICATION_AUDIT_YEAR_FIX.md`: Ghanshyam job (`job_20260705_201151`) had 3
+documents misclassified (a Macquarie CMA transaction listing + 2 dividend advices, all
+predating the fund's actual FY23-24 audit year) because the Prior-Year precedence rule
+referenced "the audit year" without it ever being defined anywhere in the app — not in
+the prompt, not in `funds_config.json`, not collected at job creation — and classification
+runs one document at a time with no cross-document context to infer it from. Fixed:
+
+- Added `financial_year_end` (ISO date, the 30 June the audit is FOR) to every fund in
+  `funds_config.json`. Verified from source documents for Ghanshyam (`2024-06-30`,
+  FY23-24 — confirmed via a pension-payment email explicitly discussing "the current
+  financial year" against a 30 June 2023 balance) and Boulter Allen (`2025-06-30`,
+  FY24-25 — confirmed via its own TSB/ATO extracts). **The other 10 funds default to
+  `2025-06-30` — an inherited default, not individually re-verified.**
+- `core_engine.fy_context(fund_profile)` derives the audit-year label/dates; injected
+  into `classify_papers`'s system prompt (rule 1 now says "before {date}" instead of the
+  undefined "before the audit year") and mirrored into `classify_workpapers.py`
+  (`build_system_prompt()`, new optional CLI arg — this script has no fund-profile
+  plumbing at all, so the FY context is passed as a plain date string, not a full fund
+  object).
+- Lightly threaded into `reconcile_papers` (Lead Schedules) too: the prompt now states
+  the fund's real audit-year dates and instructs the model to use them despite the
+  schema's literal `1jul24`/`30jun25`/`FY25` field-name conventions (key names left
+  unchanged to avoid rippling into `app.py`/frontend consumers).
+- `api_create_job` snapshots `financial_year_end` onto the job record at creation;
+  `WorkspaceHeader.tsx` displays it (`formatFinancialYear()` in `api/format.ts`) next to
+  ABN, e.g. `ABN 16154927376 · FY23-24 · ...`. Older jobs without the field just don't
+  show it.
+- Reclassified the 3 documents in `job_20260705_201151` (category, `ai_category`/
+  `overridden` metadata, classified filenames, and the physical PDFs in `workpaper/` all
+  updated) and verified in-browser. **Not done:** this job's Phase 2 already ran against
+  the old categorization — needs a fresh Phase-2 run to reflect the correction and pick
+  up the new audit-year-aware prompts.
+
+### Update 2026-07-05 (later) — rule 1 was losing to type-routing, not just missing an anchor
+
+User changed Ghanshyam to FY24-25 and re-ran (`job_20260705_222423`) — 4 dividend
+advices + the pension email (now all prior-year under the new anchor) still weren't
+routed to Prior Year Documents. Different bug from the one above: the model *had* the
+right anchor date but reasoned "the specific type category is more precise, so it wins"
+— rule 1 is supposed to be an unconditional override evaluated before type-routing, the
+opposite precedence. Reworded rule 1 in both `core_engine.py` and `classify_workpapers.py`
+to state explicitly it wins regardless of type-match strength, gave the two exact
+failure-case documents as worked examples, and tightened the live-snapshot exception's
+wording so it can't be borrowed to justify exempting an ordinary dated advice/email.
+Corrected the 5 documents by hand in `job_20260705_222423` (still `pending_processor_review`
+— no Phase 2 run yet, so no stale downstream data this time). Full detail + the model's
+exact self-contradictory reasoning quotes: `docs/CLASSIFICATION_AUDIT_YEAR_FIX.md`. **Not
+yet re-verified against a fresh LLM call** — no new job has been run against the reworded
+prompt yet.
 
 ---
 
@@ -338,6 +390,60 @@ message instead of sitting silently at some `%` forever. Verified with mocked
 above, then re-run the same A H Smith GLM job and diff against the Grok
 baseline (`job_20260705_155851`) before trusting it for client-facing output.
 
+### Update 2026-07-05 (later still x2) — transfer detection redesigned; wrap ledger extraction fixed
+
+Two more bugs found in the same Grok run of A H Smith (`job_20260705_165001`):
+
+1. **Internal transfers missed** (`docs/RECONCILIATION_TRANSFER_DETECTION_FIX.md`):
+   `detect_internal_transfers`' keyword whitelist had a letter-order typo
+   (`"trf"` vs. the real narrative `"Tfr"`) and no vocabulary for
+   redemption-driven cross-account moves — and a keyword whitelist can never
+   be complete for every bank's abbreviation anyway. Replaced with a
+   structural two-tier design: amount + opposite direction + date proximity
+   is the real signal; a keyword/account-number-reference match only widens
+   the allowed date window (corroborated tier), while amount+direction alone
+   still auto-links within a tight window *if the amount is unambiguous*
+   (uncorroborated tier). Verified against this job's real data: all 8
+   genuine transfer pairs now link correctly (including a tricky case where
+   ambiguity had to be re-checked *after* corroborated pairs claimed their
+   legs), and 2 genuine external member payments that shared an amount/date
+   with a transfer leg correctly stayed unmatched.
+2. **Wrap "transaction listing" documents destroyed**
+   (`docs/RECONCILIATION_WRAP_LEDGER_EXTRACTION_FIX.md`): the holdings
+   compressor (`_extract_portfolio_holdings`) was gated by category name, not
+   content, so a genuine 14-page BT Panorama annual transaction history (the
+   actual evidence for many of this job's "unmatched" bank deposits) got
+   compressed to 132 garbage characters. Replaced with a content sniff
+   (`_looks_like_transaction_history`, requiring 3+ *distinct* dates to avoid
+   false-positiving on a holdings snapshot whose rows are also date-led but
+   all the same date) that routes real ledgers through a boilerplate
+   stripper instead (29,065 → 19,974 chars, all real content kept) and
+   leaves genuine holdings snapshots on the old compression path unchanged.
+   Noted but not fixed: that old path itself looks broken for this
+   platform's layout too (separate, pre-existing issue).
+
+Both verified via offline replay against `job_20260705_165001`'s actual
+stored data (no LLM calls needed for verification). Needs a fresh Phase-2 run
+of any affected job for either fix to show up in the UI.
+
+### Update 2026-07-05 (later still x3) — Lead Schedules accuracy fixes
+
+`docs/LEAD_SCHEDULES_ACCURACY_FIX.md`: four fixes to `reconcile_papers`
+("Lead schedules" tab) — (1) Cash Lead Schedule now sourced from Phase 2's
+already tie-out-validated controls instead of a second LLM guess, but only
+when that account's tie-out actually passed (a real regression was caught
+during verification: 3 of 4 accounts in `job_20260705_165001` have
+`tie_out: False` due to the known `_find_control` first-match bug, and
+unconditionally trusting the deterministic figure would have overwritten a
+correct LLM answer with a wrong one — see the doc for detail); (2) Member TSB
+now covers every fund member, not just index 0; (3) Securities check is now
+data-driven (`holdings_reconciliation`/`distribution_checks` arrays) instead
+of hardcoded to one specific security (MXT) with baked-in example numbers;
+(4) per-document truncation cap raised 12,000 → 40,000 chars. `app.py` and
+`LeadSchedules.tsx` updated to match; legacy result shapes normalized for
+backward compatibility. Compile/typecheck clean. Needs a fresh Phase-2 run to
+populate the new fields end-to-end.
+
 ### Update 2026-07-05 (later still) — closing-balance leak recurred on Grok, now fixed deterministically
 
 The previously-shipped prompt fix for closing-balance rows leaking into the
@@ -423,5 +529,12 @@ log), `docs/BANK_STATEMENT_GROUPED_ROW_FIX.md`,
 - Compile/build checks: `python3 -m py_compile core_engine.py app.py
   classify_workpapers.py`; `cd frontend && npx tsc --noEmit && npx vite build`;
   `python3 -c "import json; json.load(open('playbook_config.json'))"`.
-- As of 2026-07-02: nothing from that session was committed. To commit, stage the
-  changed source + docs (NOT `jobs_db.json`) on the current branch.
+- As of 2026-07-05 (end of session): one commit landed mid-session (`Harden Phase-2
+  reconciliation and refine classification playbook`, includes the GLM hang fix,
+  closing-balance fix, and everything before it). Everything from "Update 2026-07-05
+  (later still x2)" onward in this doc (transfer detection redesign, wrap ledger
+  extraction fix, Lead Schedules accuracy fixes, both audit-year fixes, and the
+  Ghanshyam/Boulter Allen `funds_config.json` bank-account + `financial_year_end`
+  corrections) is **uncommitted** as of session end. To commit, stage the changed source
+  + docs + `funds_config.json` (NOT `jobs_db.json`, NOT the `jobs/` directory) on the
+  current branch.

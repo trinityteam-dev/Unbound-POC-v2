@@ -20,6 +20,34 @@ PHASE2_DEFAULT_MODEL = "x-ai/grok-4.20"
 # PHASE2_DEFAULT_MODEL = "z-ai/glm-5.2"
 PHASE2_FALLBACK_MODEL = "google/gemini-2.5-flash"
 
+# Fallback only for funds whose config predates the `financial_year_end` field.
+DEFAULT_FINANCIAL_YEAR_END = "2025-06-30"
+
+
+def fy_context(fund_profile):
+    """Derive this fund's audit-year context from fund_profile['financial_year_end']
+    (an ISO date — the 30 June the audit is FOR, e.g. '2024-06-30' for FY23-24).
+
+    Classification's Prior-Year precedence rule and the Lead Schedules prompt both need
+    a concrete "before/after the audit year" anchor — previously neither had one (see
+    docs/CLASSIFICATION_AUDIT_YEAR_FIX.md), so a document could only be judged prior-year
+    if it happened to describe itself as such in its own text. Every fund is assumed to
+    run 1 July - 30 June (standard Australian SMSF financial year); only which year varies.
+    """
+    fy_end_str = fund_profile.get("financial_year_end") or DEFAULT_FINANCIAL_YEAR_END
+    try:
+        fy_end = datetime.date.fromisoformat(fy_end_str)
+    except (ValueError, TypeError):
+        fy_end = datetime.date.fromisoformat(DEFAULT_FINANCIAL_YEAR_END)
+    fy_start = datetime.date(fy_end.year - 1, 7, 1)
+    return {
+        "start": fy_start,
+        "end": fy_end,
+        "label": f"FY{fy_start.year % 100:02d}-{fy_end.year % 100:02d}",
+        "start_str": fy_start.strftime("%d %B %Y"),
+        "end_str": fy_end.strftime("%d %B %Y"),
+    }
+
 # Helper to find executables
 def find_executable(name, default_path):
     path = shutil.which(name)
@@ -575,11 +603,14 @@ def classify_papers(input_dir, workpapers_dir, fund_profile, api_key, scratch_di
         [f"- {cat}: {scope}" for cat, scope in keywords_config.items()]
     )
 
+    fy = fy_context(fund_profile)
     system_prompt = f"""You are an AI assistant specialised in Australian income tax auditing and Self-Managed Superannuation Fund (SMSF) work-paper filing.
 Classify a single document for the fund '{fund_profile.get('name')}' using the '{job_type}' playbook. The text may be noisy or partial OCR.
 
+THIS FUND'S CURRENT AUDIT YEAR IS {fy['label']}: {fy['start_str']} to {fy['end_str']}. Use this exact period — not the calendar year, not today's date — as "the audit year" everywhere below.
+
 Classify by the document's PURPOSE and ISSUER, not by isolated keywords. Choose EXACTLY ONE category. Apply these precedence rules in order:
-1. PRIOR-YEAR OVERRIDE: a finalised/signed prior-year deliverable, or content relating ONLY to a year before the audit year, => "Prior Year Documents". EXCEPTION: live ATO/registry/super snapshots that merely list prior-year transactions or a prior-30-June balance are classified by type (=> "ATO Accounts"). Future-year documents are classified by type.
+1. PRIOR-YEAR OVERRIDE — evaluate this FIRST, and it WINS over every rule below no matter how cleanly the document also matches a specific type category further down. {fy['label']} runs from {fy['start_str']} (day one) to {fy['end_str']} (last day) inclusive. A finalised/signed prior-year deliverable, OR ANY document whose own content/date/period is about a single event dated before {fy['start_str']}, => "Prior Year Documents". This includes ordinary income/holding/benefit documents that would otherwise cleanly match a specific category below — e.g. a dividend advice paid in March 2022, or a pension payment made/required in June 2024, are STILL "Prior Year Documents" (not "Dividend Statement" or "Benefit paid/transferred") when {fy['label']} started on {fy['start_str']}, because this override is evaluated before type-routing and is not weighed against how specific the type match is. Do NOT reason "the specific category is more precise, so it wins" — that reasoning is backwards; the override is unconditional for anything dated before {fy['start_str']}. This applies even when the document's own text never uses the words "prior year" — compare the document's own date/period (a statement's "as at" date, a period-end, an email's send date, a payment date) against {fy['start_str']} yourself, and remember a date can only be prior-year, current-year, or future-year — there is no fourth option where a strong type match exempts it. THE ONLY EXCEPTION: a LIVE ATO/registry/super-account snapshot — a report pulled right now from ATO Online Services or a registry portal — that merely lists a historical balance/transaction as one row among current ones is classified by type instead (=> "ATO Accounts"); this narrow exception never applies to a dated advice, statement, or email whose entire content is about one prior-year event. Documents dated after {fy['end_str']} (future-year) are classified by type.
 2. ISSUER ROUTING: a wrap/platform/private-bank-issued document => one of the "Wrap -" categories (transactions+valuation / tax statement / Type 2 report). Wrap/platform issuers include BUT ARE NOT LIMITED TO HUB24, UBS, Macquarie (Wrap AND Private Bank), BT Panorama, Netwealth, CFS, Praemium, Mason Stevens — treat this as a non-exhaustive list, NOT a closed set: ANY consolidated multi-asset investor/portfolio report from an investment platform or a bank's private-client investment service is a "Wrap -" category. In particular, a consolidated PORTFOLIO VALUATION + CASH LEDGER / transaction report (e.g. a Macquarie Private Bank report) => "Wrap - Annual Transaction Listing and Portfolio Valuation Report". A broker consolidated pack (e.g. Ord Minnett) => "Broker - Transaction Listing and Portfolio Valuation Report". A single-holding document => the specific direct category (Dividend Statement / Distribution Statement / Annual Tax Statement / Trade Contract / HIN Holding Statement / Chess Holding). IMPORTANT — "Distribution Statement" scope: a managed fund/trust's own "Periodic Statement" for ONE fund is "Distribution Statement" even when it ALSO shows a unit valuation, transaction history and fees for that fund, as long as the issuer is the fund manager itself (not a wrap/platform). Do NOT reject "Distribution Statement" on the grounds that the document is a "general periodic investor statement" rather than a pure distribution-only notice — that distinction does not exist in this taxonomy; the same fund manager's periodic statement template is Distribution Statement regardless of which specific underlying fund it names.
 3. NAMING TRAP: an "Activity Statement" or "Statement of Account" issued by a private accountant/firm is NOT an ATO document => "Other Expenses"; only ATO-issued income-tax/integrated/activity/PAYG/GST documents => "ATO Accounts". Within "ATO Accounts", the sub_type MUST be exactly "ITA" or "ICA" — never the generic phrase "ATO integrated client account": an ATO Income Tax Account statement / notice of assessment / income tax account document => sub_type "ITA"; an ATO Integrated Client Account statement or an Activity Statement (BAS/IAS, GST/PAYG instalments or withholding) => sub_type "ICA".
 4. CONTRIBUTIONS vs ATO ACCOUNTS: decide by the document's HEADLINE SUBJECT / main table, using the title and filename. (a) If the title or main table is "Total Superannuation Balance" / TSB / TBC => "ATO Accounts", EVEN THOUGH a TSB report always references contribution caps and eligibility — that does NOT make it a contribution document. (b) If the title or main table is concessional / non-concessional CONTRIBUTIONS (amounts received and cap usage) => "Contribution", EVEN THOUGH it shows the member's TSB. (c) When unsure, the document title/filename wins: "...Total Superannuation Balance" => ATO Accounts; "...Concessional/Non-concessional Contributions" => Contribution. Other ATO income-tax / integrated-client / PAYG / GST account documents => "ATO Accounts".
@@ -980,7 +1011,7 @@ def fallback_classify_by_keywords(filename, text, keywords_config, fund_profile)
         "confidence": 40
     }
 
-def reconcile_papers(workpapers_dir, fund_profile, api_key, scratch_dir, update_progress, job_type="Accounting_Audit", record_usage=None, model=None):
+def reconcile_papers(workpapers_dir, fund_profile, api_key, scratch_dir, update_progress, job_type="Accounting_Audit", record_usage=None, model=None, reconciliation_results=None):
     """Performs reconciliations using the custom templated LLM prompt based on discovered profile."""
     model = model or PHASE2_DEFAULT_MODEL
     update_progress(70, "Starting dynamic audit checklist and reconciliations...")
@@ -1005,7 +1036,11 @@ def reconcile_papers(workpapers_dir, fund_profile, api_key, scratch_dir, update_
                 except Exception:
                     pass
             
-            snippet = doc_text[:12000]
+            # 40,000 chars is a generous backstop, not a working limit — several of this
+            # fund's real documents (e.g. a 14-page wrap transaction history) run to ~29,000
+            # raw chars, and the old 12,000-char cap silently truncated some of them before
+            # the LLM ever saw the relevant figures.
+            snippet = doc_text[:40000]
             text_context.append(f"=== START OF FILE: {f} ===\n{snippet}\n=== END OF FILE: {f} ===")
 
     all_docs_context = "\n\n".join(text_context)
@@ -1068,8 +1103,11 @@ For the checklist, set statuses of permanent, tax, and audit document categories
 Your task is to analyze the text, verify compliance against the full audit checklist, and perform detailed financial reconciliations (Cash, Portfolio, Tax accounts, Member TSB composition).
 """
 
+    fy = fy_context(fund_profile)
     system_prompt = f"""{audit_instructions}
 You are analyzing documents for the fund: "{fund_profile.get('name')}".
+
+THIS FUND'S AUDIT YEAR IS {fy['label']}: {fy['start_str']} to {fy['end_str']}. The JSON field names below use the literal labels "1jul24"/"30jun25"/"2024"/"2025"/"FY25" as a fixed NAMING CONVENTION only — they do NOT necessarily mean those literal calendar dates. Populate them with THIS FUND'S actual audit-year dates: "opening_bal_1jul24" = balance as at {fy['start_str']} (the start of {fy['label']}); "closing_bal_30jun25" = balance as at {fy['end_str']} (the end of {fy['label']}); "tsb_2024" = each member's TSB at {fy['start_str']}; "tsb_2025" = each member's TSB at {fy['end_str']}; the outstanding-returns key named "FY25" should report on {fy['label']}'s return, not literally FY2024-25.
 
 You must output a single valid JSON object containing exactly the following schema. Do not output any conversational wrapper text outside the JSON code block.
 
@@ -1123,36 +1161,39 @@ JSON Schema:
   "portfolio_reconciliation": {{
     "totals": {{
       "opening_1jul24": {{
-        "total_cost": 1811143.58,
-        "total_market_value": 2073256.84,
-        "estimated_annual_income": 96528.93
+        "total_cost": <number>,
+        "total_market_value": <number>,
+        "estimated_annual_income": <number>
       }},
       "closing_30jun25": {{
-        "total_cost": 1876433.97,
-        "total_market_value": 2345269.88,
-        "estimated_annual_income": 98849.35
+        "total_cost": <number>,
+        "total_market_value": <number>,
+        "estimated_annual_income": <number>
       }}
     }},
-    "mxt_reconciliation": {{
-      "description": "Metrics Master Income Trust (MXT) holding reconciliation at 30/06/2025",
-      "broker_units": 14000,
-      "broker_price": 2.020,
-      "broker_market_value": 28280.00,
-      "registry_units": 14000,
-      "registry_price": 2.0000,
-      "registry_market_value": 28000.00,
-      "variance_units": 0,
-      "variance_value": 280.00,
-      "explanation": "Explain market close price vs Net Asset Value"
-    }},
-    "distribution_check": {{
-      "mxt_tax_statement_distribution": 2207.80,
-      "mxt_periodic_statement_distribution": 2207.80,
-      "tax_return_share_of_income_13u": 2216.51,
-      "other_assessable_income": 480.77,
-      "reconciliation": "Pass|Fail",
-      "notes": "reconciliation details"
-    }}
+    "holdings_reconciliation": [
+      {{
+        "security_name": "the actual security/holding name, e.g. 'Betashares Gold Bullion ETF (QAU)' — ONLY include a security that appears in BOTH a broker/registry-style document AND a wrap/platform document with unit/price data, so there is something to cross-check",
+        "broker_units": <number>,
+        "broker_price": <number>,
+        "broker_market_value": <number>,
+        "registry_units": <number>,
+        "registry_price": <number>,
+        "registry_market_value": <number>,
+        "variance_units": <number>,
+        "variance_value": <number>,
+        "explanation": "explain any variance (e.g. market close price vs Net Asset Value), or 'No variance' if none"
+      }}
+    ],
+    "distribution_checks": [
+      {{
+        "security_name": "the managed fund/trust name — ONLY include a holding with BOTH a tax statement and a periodic/distribution statement to cross-check",
+        "tax_statement_distribution": <number>,
+        "periodic_statement_distribution": <number>,
+        "reconciliation": "Pass|Fail",
+        "notes": "reconciliation details"
+      }}
+    ]
   }},
   "tax_reconciliation": {{
     "accounts": [
@@ -1174,8 +1215,20 @@ JSON Schema:
       "details": "detail"
     }}
   }},
-  "member_reconciliation": {json.dumps(members_reconciliation[0])}
+  "member_reconciliation": {json.dumps(members_reconciliation)}
 }}
+
+IMPORTANT for "holdings_reconciliation" and "distribution_checks": these are examples of the
+SHAPE only — do not force a check on a security this fund doesn't actually hold. Look at the
+fund's actual classified documents and only include an entry where you can genuinely
+cross-reference two independent sources (broker vs registry/wrap, or tax statement vs
+periodic statement) for the SAME holding. If no such cross-referenceable holding exists,
+return empty arrays for both — an empty array is the correct answer, not a fabricated one.
+
+IMPORTANT for "member_reconciliation": the input above is the list of ALL of this fund's
+members (from the fund profile) as a JSON array — one placeholder object per member. Return
+the SAME LENGTH array, one completed object per member, in the same order. Do not return a
+single object and do not drop any member.
 """
 
     update_progress(80, f"Querying OpenRouter AI ({model}) for dynamic audit analysis...")
@@ -1196,6 +1249,58 @@ JSON Schema:
         update_progress(90, "AI query failed. Using pre-calculated local audit analysis...")
         from verify_and_generate_workpapers import get_fallback_audit_data
         ai_results = get_fallback_audit_data(available_files)
+
+    # Overlay the Cash Lead Schedule with the already tie-out-validated opening/closing
+    # balances from Phase 2 bank reconciliation, when available. Don't let the LLM
+    # re-derive (and potentially disagree with) a number the app already computed
+    # deterministically from the statement's own control totals — this guarantees the
+    # Reconciliation tab and the Lead Schedules tab always show the same balance for the
+    # same account (see docs/LEAD_SCHEDULES_ACCURACY_FIX.md).
+    if reconciliation_results:
+        cash_accounts = (ai_results.get("cash_reconciliation") or {}).get("accounts") or []
+        for acc in cash_accounts:
+            acct_result = reconciliation_results.get(str(acc.get("number", ""))) or {}
+            controls = acct_result.get("controls") or {}
+            # Only trust the deterministic controls when the account's own tie-out actually
+            # passed (opening + credits - debits == closing). A merged multi-period statement
+            # can trip the known _find_control first-match bug (docs/BANK_ACCOUNT_DISCOVERY_RCA
+            # .md) and anchor on an early period's closing figure instead of the true FY-end
+            # one — the tie-out failing is exactly the signal that's happened. In that case,
+            # overriding would REPLACE a possibly-correct LLM answer with a KNOWN-wrong one, so
+            # leave the LLM's figure as the fallback instead.
+            if (acct_result.get("reconciliation") or {}).get("tie_out") is not True:
+                continue
+            if controls.get("opening") is not None:
+                acc["opening_bal_1jul24"] = controls["opening"]
+            if controls.get("closing") is not None:
+                acc["closing_bal_30jun25"] = controls["closing"]
+
+    # Normalize legacy shapes — the local error-path fallback (verify_and_generate_workpapers
+    # .get_fallback_audit_data) predates this schema and still returns the old single-member /
+    # single-hardcoded-security shape. Convert it here so every downstream consumer (app.py,
+    # the frontend) only ever has to handle one shape: member_reconciliation as a list,
+    # portfolio holdings/distribution checks as lists.
+    member_rec = ai_results.get("member_reconciliation")
+    if isinstance(member_rec, dict):
+        ai_results["member_reconciliation"] = [member_rec]
+
+    portfolio = ai_results.get("portfolio_reconciliation")
+    if isinstance(portfolio, dict):
+        legacy_mxt = portfolio.pop("mxt_reconciliation", None)
+        if legacy_mxt and "holdings_reconciliation" not in portfolio:
+            portfolio["holdings_reconciliation"] = [{
+                "security_name": legacy_mxt.get("description", "Holding"),
+                **{k: v for k, v in legacy_mxt.items() if k != "description"},
+            }]
+        legacy_dist = portfolio.pop("distribution_check", None)
+        if legacy_dist and "distribution_checks" not in portfolio:
+            portfolio["distribution_checks"] = [{
+                "security_name": "Managed fund distribution",
+                "tax_statement_distribution": legacy_dist.get("mxt_tax_statement_distribution"),
+                "periodic_statement_distribution": legacy_dist.get("mxt_periodic_statement_distribution"),
+                "reconciliation": legacy_dist.get("reconciliation"),
+                "notes": legacy_dist.get("notes"),
+            }]
 
     # Clean and fill checklist files dynamically
     checklist_status = ai_results.get("checklist", {})
@@ -1835,6 +1940,53 @@ def _extract_supporting_doc_text(doc_path, scratch_dir=None):
     return '\n'.join(ocr_pages).strip()
 
 
+_TXN_LEDGER_HEADER_MARKERS = ("trade date", "net amount")
+_TXN_LEDGER_DATE_LINE_RE = re.compile(r"^\d{1,2}\s+[A-Za-z]+\s+\d{4}\b")
+
+
+def _looks_like_transaction_history(text):
+    """True if `text` looks like a dated wrap/platform transaction listing (distributions,
+    income, fees, redemptions) rather than a static holdings valuation snapshot. This is a
+    content sniff, not a category-name check — one classification category ("Wrap - Annual
+    Transaction Listing and Portfolio Valuation Report") bundles both document shapes, and
+    routing by category name alone caused a transaction-history document to be destroyed by
+    the holdings compressor (see docs/RECONCILIATION_TRANSFER_DETECTION_FIX.md)."""
+    if not text:
+        return False
+    lower = text.lower()
+    if all(marker in lower for marker in _TXN_LEDGER_HEADER_MARKERS):
+        return True
+    # Fallback for platforms that word their column headers differently: a genuine
+    # transaction ledger has rows spread across MANY distinct dates. A holdings valuation
+    # snapshot's rows are each also date-led (the "as at" valuation date), but every row
+    # repeats the SAME single date — so require several distinct dates, not just several
+    # date-led lines, or a single-date snapshot false-positives as a ledger.
+    dates = {
+        m.group(0) for line in text.split("\n")
+        if (m := _TXN_LEDGER_DATE_LINE_RE.match(line.strip()))
+    }
+    return len(dates) >= 3
+
+
+def _strip_repeated_boilerplate(text, min_len=8, min_repeats=3):
+    """Drop lines that repeat verbatim across a multi-page document after their first
+    occurrence — page headers/footers repeat identically on every page and carry no
+    reconciliation value, while genuine transaction lines (even similar ones) don't repeat
+    byte-for-byte. Keeps one copy of each repeated line for context, removes the rest."""
+    lines = text.split("\n")
+    counts = Counter(l.strip() for l in lines if len(l.strip()) >= min_len)
+    seen = set()
+    out = []
+    for line in lines:
+        key = line.strip()
+        if len(key) >= min_len and counts[key] >= min_repeats:
+            if key in seen:
+                continue
+            seen.add(key)
+        out.append(line)
+    return "\n".join(out)
+
+
 def _count_amount_occurrences(amount, text, tol=0.01):
     """How many times `amount` (to the cent) appears as a monetary figure in `text`."""
     if amount is None or not text:
@@ -1900,9 +2052,14 @@ def build_reconciliation_prompt(phase2_context, transactions_by_account, scratch
             doc_text = _extract_supporting_doc_text(doc_path, scratch_dir)
             if not doc_text:
                 continue
-            # Holdings extraction fires for any valuation-bearing report (the Wrap/
-            # Broker "... Portfolio Valuation Report" categories, or the legacy name).
-            if "Portfolio Valuation" in doc_category:
+            # Dispatch by CONTENT, not category name: a "... Portfolio Valuation Report"
+            # category can bundle either a dated transaction listing (distributions,
+            # income, fees — exactly what the matcher needs, kept close to raw) or a
+            # static holdings snapshot (no dates, no matching value — compress it so it
+            # doesn't bloat the prompt with a long securities table).
+            if _looks_like_transaction_history(doc_text):
+                doc_text = _strip_repeated_boilerplate(doc_text)
+            elif "Portfolio Valuation" in doc_category:
                 doc_text = _extract_portfolio_holdings(doc_text, doc_name)
             if doc_text:
                 # Raw occurrence counts overcount: a single-period document routinely restates
@@ -2259,14 +2416,43 @@ def mark_no_evidence_transactions(reconciliation_results):
 _TRANSFER_KEYWORDS = ("sweep", "transfer", " trf", "trf ", "internal transfer", "inter-account")
 
 
-def detect_internal_transfers(reconciliation_results, tolerance=0.01, max_window_days=120):
-    """Deterministically pair bank-to-bank transfers across the fund's accounts. A pair is
-    two transactions on DIFFERENT accounts with equal amount, OPPOSITE direction (one debit,
-    one credit), at least one leg's narrative containing a transfer keyword, and dates within
-    a generous sanity bound (legs often clear weeks apart, and OCR dates drift — so date is
-    used to pick the NEAREST candidate, not as a tight cutoff). Each leg is marked as an
-    internal transfer linking to the other. Overrides any prior (LLM) match on those legs.
-    Returns the number of transactions marked."""
+def _transfer_corroborated(desc_a, desc_b, acc_num_a, acc_num_b):
+    """True if there's a TEXTUAL signal the two legs are the same transfer: either
+    narrative reads like a transfer (a bonus signal, not load-bearing — see
+    docs/RECONCILIATION_TRANSFER_DETECTION_FIX.md for why a keyword whitelist alone
+    can't keep up with every bank's abbreviation), or either narrative names the OTHER
+    account's own number (bank-agnostic — banks routinely cite the linked account,
+    e.g. "Bt Funds 90167750/Redempt", regardless of what word they use for "transfer")."""
+    if any(k in desc_a for k in _TRANSFER_KEYWORDS) or any(k in desc_b for k in _TRANSFER_KEYWORDS):
+        return True
+    if acc_num_b and str(acc_num_b) in desc_a:
+        return True
+    if acc_num_a and str(acc_num_a) in desc_b:
+        return True
+    return False
+
+
+def detect_internal_transfers(reconciliation_results, tolerance=0.01, max_window_days=120,
+                               uncorroborated_window_days=7):
+    """Deterministically pair bank-to-bank transfers across the fund's accounts.
+
+    The real signal isn't narrative wording — within one fund's small, closed set of
+    accounts, an EQUAL AMOUNT moving in OPPOSITE DIRECTIONS across two different accounts
+    within a few days of each other is already a strong fingerprint on its own. Two
+    corroboration tiers control how much date slack a pair is allowed:
+
+    - CORROBORATED (`_transfer_corroborated`: keyword match or either leg names the
+      other's account number): a generous date window (`max_window_days`) since text
+      already ties the legs together — legs can clear weeks apart.
+    - UNCORROBORATED (amount + opposite direction only, no textual signal): a tight
+      window (`uncorroborated_window_days`) AND the amount must be unambiguous — if more
+      than one candidate pair (after corroborated pairs have already claimed their legs)
+      shares that amount, none of them are auto-linked, since we can't tell which
+      pairing is real without a textual signal. Better to leave genuinely ambiguous
+      cases for a human than to guess.
+
+    Each leg is marked as an internal transfer linking to the other. Overrides any prior
+    (LLM) match on those legs. Returns the number of transactions marked."""
     legs = []  # (acc_num, acc_name, idx, amount, direction, date, desc_lower)
     for acc_num, acc in reconciliation_results.items():
         acc_name = acc.get("account_name", acc_num)
@@ -2285,8 +2471,8 @@ def detect_internal_transfers(reconciliation_results, tolerance=0.01, max_window
             legs.append((acc_num, acc_name, idx, amt, direction,
                          _recon_parse_date(tx.get("date")), (tx.get("description") or "").lower()))
 
-    # Build candidate pairs, then greedily match nearest-date-first so each leg is used once.
-    candidates = []  # (date_diff, i, j)
+    corroborated = []    # (date_diff, i, j)
+    uncorroborated = []  # (date_diff, i, j)
     for i in range(len(legs)):
         for j in range(i + 1, len(legs)):
             a, b = legs[i], legs[j]
@@ -2296,31 +2482,47 @@ def detect_internal_transfers(reconciliation_results, tolerance=0.01, max_window
                 continue  # amounts must match
             if a[4] == b[4]:
                 continue  # need opposite direction (one out, one in)
-            if not (any(k in a[6] for k in _TRANSFER_KEYWORDS)
-                    or any(k in b[6] for k in _TRANSFER_KEYWORDS)):
-                continue  # at least one leg must read like a transfer
+
             if a[5] and b[5]:
                 dd = abs((a[5] - b[5]).days)
-                if dd > max_window_days:
-                    continue
             else:
                 dd = 10 ** 6  # unknown dates: lowest priority but still eligible
-            candidates.append((dd, i, j))
 
-    candidates.sort(key=lambda c: c[0])
+            if _transfer_corroborated(a[6], b[6], a[0], b[0]):
+                if dd <= max_window_days:
+                    corroborated.append((dd, i, j))
+            elif dd <= uncorroborated_window_days:
+                uncorroborated.append((dd, i, j))
+
     used = set()
     marked = 0
-    for _dd, i, j in candidates:
-        if i in used or j in used:
-            continue
-        a, b = legs[i], legs[j]
-        tx_a = reconciliation_results[a[0]]["transactions"][a[2]]
-        tx_b = reconciliation_results[b[0]]["transactions"][b[2]]
-        _recon_mark_internal_transfer(tx_a, b[0], b[2], b[1])
-        _recon_mark_internal_transfer(tx_b, a[0], a[2], a[1])
-        used.add(i)
-        used.add(j)
-        marked += 2
+
+    def _apply(candidates):
+        nonlocal marked
+        for _dd, i, j in sorted(candidates, key=lambda c: c[0]):
+            if i in used or j in used:
+                continue
+            a, b = legs[i], legs[j]
+            tx_a = reconciliation_results[a[0]]["transactions"][a[2]]
+            tx_b = reconciliation_results[b[0]]["transactions"][b[2]]
+            _recon_mark_internal_transfer(tx_a, b[0], b[2], b[1])
+            _recon_mark_internal_transfer(tx_b, a[0], a[2], a[1])
+            used.add(i)
+            used.add(j)
+            marked += 2
+
+    # Corroborated pairs get first claim on their legs.
+    _apply(corroborated)
+
+    # Re-check ambiguity AFTER corroborated pairs have claimed their legs — a candidate
+    # that looked ambiguous only because it shared an amount with a leg a corroborated
+    # pair has since claimed is no longer ambiguous once that leg is removed from
+    # consideration (see docs/RECONCILIATION_TRANSFER_DETECTION_FIX.md).
+    remaining = [c for c in uncorroborated if c[1] not in used and c[2] not in used]
+    amount_counts = Counter(round(legs[c[1]][3], 2) for c in remaining)
+    unambiguous = [c for c in remaining if amount_counts[round(legs[c[1]][3], 2)] == 1]
+    _apply(unambiguous)
+
     return marked
 
 
@@ -3172,8 +3374,15 @@ def run_ai_processor_phase(folder_path, run_id, fund_profile, job_type, api_key,
 
     return processed, unprocessed
 
-def run_ai_reviewer_phase(run_id, fund_profile, job_type, api_key, scratch_dir, update_progress, record_usage=None, model=None):
-    """Runs Phase 2: Performs dynamic lead schedule calculations and checklist verifications."""
+def run_ai_reviewer_phase(run_id, fund_profile, job_type, api_key, scratch_dir, update_progress,
+                           record_usage=None, model=None, reconciliation_results=None):
+    """Runs Phase 2: Performs dynamic lead schedule calculations and checklist verifications.
+
+    `reconciliation_results` (from Phase 2 bank reconciliation, keyed by account number) is
+    passed through so the Cash Lead Schedule can be sourced from the already tie-out-validated
+    control totals instead of asking the LLM to re-derive opening/closing balances from raw
+    text a second time (see docs/LEAD_SCHEDULES_ACCURACY_FIX.md).
+    """
     run_dir = os.path.join(os.getcwd(), run_id)
     workpapers_dir = os.path.join(run_dir, "workpaper")
     os.makedirs(workpapers_dir, exist_ok=True)
@@ -3181,6 +3390,6 @@ def run_ai_reviewer_phase(run_id, fund_profile, job_type, api_key, scratch_dir, 
     update_progress(70, "AI Reviewer: Reconciling ledger balances and validating checklist...")
     results = reconcile_papers(
         workpapers_dir, fund_profile, api_key, scratch_dir, update_progress, job_type,
-        record_usage=record_usage, model=model,
+        record_usage=record_usage, model=model, reconciliation_results=reconciliation_results,
     )
     return results

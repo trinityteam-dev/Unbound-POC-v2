@@ -1,4 +1,4 @@
-import { Badge, Group, SimpleGrid, Stack, Table, Text } from '@mantine/core'
+import { Badge, Box, Divider, Group, SimpleGrid, Stack, Table, Text } from '@mantine/core'
 import { formatAud } from '../../api/format'
 import type { JobResults } from '../../api/types'
 import { tokens } from '../../theme'
@@ -66,40 +66,67 @@ function CashCard({ cash }: { cash: Any | undefined }) {
 }
 
 function SecuritiesCard({ portfolio }: { portfolio: Any | undefined }) {
-  const mxt = (portfolio?.mxt_reconciliation as Any) ?? {}
-  const dist = (portfolio?.distribution_check as Any) ?? {}
-  const variance =
-    typeof mxt.broker_market_value === 'number' && typeof mxt.registry_market_value === 'number'
-      ? mxt.broker_market_value - mxt.registry_market_value
-      : null
-  const distPass = String(dist.reconciliation ?? '').toLowerCase() === 'pass'
+  // Data-driven: one entry per holding/distribution the AI could actually
+  // cross-reference in this fund's documents — not a single hardcoded security.
+  const holdings = (portfolio?.holdings_reconciliation as Any[]) ?? []
+  const distChecks = (portfolio?.distribution_checks as Any[]) ?? []
+
+  if (holdings.length === 0 && distChecks.length === 0) {
+    return (
+      <Card title="Securities Portfolio Valuation" accent="teal">
+        <Text fz={13} c={tokens.textTertiary}>
+          No cross-referenceable holdings found (needs both a broker/registry document and a
+          tax/periodic statement for the same security).
+        </Text>
+      </Card>
+    )
+  }
 
   return (
     <Card title="Securities Portfolio Valuation" accent="teal">
-      <Text fz={13} fw={500} c={tokens.textSecondary} mb={4}>
-        MXT registry check
-      </Text>
-      <DefRow label="Broker market value" value={money(mxt.broker_market_value)} />
-      <DefRow label="Registry market value" value={money(mxt.registry_market_value)} />
-      {variance != null && variance !== 0 && (
-        <Text fz={12.5} c={tokens.warn} mt={4}>
-          ⚠ Pricing variance of {formatAud(Math.abs(variance))} between broker and registry.
-        </Text>
-      )}
+      <Stack gap="md">
+        {holdings.map((h, i) => {
+          const variance =
+            typeof h.broker_market_value === 'number' && typeof h.registry_market_value === 'number'
+              ? h.broker_market_value - h.registry_market_value
+              : null
+          return (
+            <Box key={`holding-${i}`}>
+              <Text fz={13} fw={500} c={tokens.textSecondary} mb={4}>
+                {String(h.security_name ?? 'Holding')} — registry check
+              </Text>
+              <DefRow label="Broker market value" value={money(h.broker_market_value)} />
+              <DefRow label="Registry market value" value={money(h.registry_market_value)} />
+              {variance != null && variance !== 0 && (
+                <Text fz={12.5} c={tokens.warn} mt={4}>
+                  ⚠ Pricing variance of {formatAud(Math.abs(variance))} between broker and registry.
+                </Text>
+              )}
+            </Box>
+          )
+        })}
 
-      <Group gap={8} mt="md" mb={4}>
-        <Text fz={13} fw={500} c={tokens.textSecondary}>
-          Distribution check
-        </Text>
-        <Badge color={distPass ? 'green' : 'red'} variant="light" radius="xl" size="sm">
-          {String(dist.reconciliation ?? 'n/a')}
-        </Badge>
-      </Group>
-      <DefRow label="Tax statement distribution" value={money(dist.mxt_tax_statement_distribution)} />
-      <DefRow
-        label="Periodic statement distribution"
-        value={money(dist.mxt_periodic_statement_distribution)}
-      />
+        {distChecks.map((d, i) => {
+          const pass = String(d.reconciliation ?? '').toLowerCase() === 'pass'
+          return (
+            <Box key={`dist-${i}`}>
+              <Group gap={8} mb={4}>
+                <Text fz={13} fw={500} c={tokens.textSecondary}>
+                  {String(d.security_name ?? 'Distribution')} check
+                </Text>
+                <Badge color={pass ? 'green' : 'red'} variant="light" radius="xl" size="sm">
+                  {String(d.reconciliation ?? 'n/a')}
+                </Badge>
+              </Group>
+              <DefRow label="Tax statement distribution" value={money(d.tax_statement_distribution)} />
+              <DefRow
+                label="Periodic statement distribution"
+                value={money(d.periodic_statement_distribution)}
+              />
+            </Box>
+          )
+        })}
+      </Stack>
     </Card>
   )
 }
@@ -128,8 +155,8 @@ function TaxCard({ tax }: { tax: Any | undefined }) {
   )
 }
 
-function MemberCard({ member }: { member: Any | undefined }) {
-  if (!member) {
+function MemberCard({ members }: { members: Any[] }) {
+  if (members.length === 0) {
     return (
       <Card title="Member Total Superannuation Balance (TSB)" accent="teal">
         <Text fz={13} c={tokens.textTertiary}>
@@ -140,17 +167,24 @@ function MemberCard({ member }: { member: Any | undefined }) {
   }
   return (
     <Card title="Member Total Superannuation Balance (TSB)" accent="teal">
-      <Text fz={14} fw={500}>
-        {String(member.name ?? '')}
-      </Text>
-      <DefRow label="TSB 2024" value={money(member.tsb_2024)} />
-      <DefRow label="TSB 2025" value={money(member.tsb_2025)} />
-      <DefRow label="Status" value={String(member.reconciliation_status ?? '—')} />
-      {member.audit_finding ? (
-        <Text fz={12.5} c={tokens.textTertiary} mt="sm">
-          {String(member.audit_finding)}
-        </Text>
-      ) : null}
+      <Stack gap="md">
+        {members.map((member, i) => (
+          <Box key={i}>
+            {i > 0 && <Divider mb="sm" />}
+            <Text fz={14} fw={500}>
+              {String(member.name ?? '')}
+            </Text>
+            <DefRow label="TSB 2024" value={money(member.tsb_2024)} />
+            <DefRow label="TSB 2025" value={money(member.tsb_2025)} />
+            <DefRow label="Status" value={String(member.reconciliation_status ?? '—')} />
+            {member.audit_finding ? (
+              <Text fz={12.5} c={tokens.textTertiary} mt="sm">
+                {String(member.audit_finding)}
+              </Text>
+            ) : null}
+          </Box>
+        ))}
+      </Stack>
     </Card>
   )
 }
@@ -163,12 +197,17 @@ export function LeadSchedules({ results }: { results: JobResults | null | undefi
       </Text>
     )
   }
+  // Backend now returns an array (one entry per fund member); tolerate a lone object too,
+  // in case older cached job results predate the change.
+  const rawMembers = results.member_reconciliation
+  const members = Array.isArray(rawMembers) ? (rawMembers as Any[]) : rawMembers ? [rawMembers as Any] : []
+
   return (
     <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
       <CashCard cash={results.cash_reconciliation as Any} />
       <SecuritiesCard portfolio={results.portfolio_reconciliation as Any} />
       <TaxCard tax={results.tax_reconciliation as Any} />
-      <MemberCard member={results.member_reconciliation as Any} />
+      <MemberCard members={members} />
     </SimpleGrid>
   )
 }

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Badge, Box, Group, Text } from '@mantine/core'
 import { IconCoins, IconLock, IconSettings } from '@tabler/icons-react'
 import type { JobDetail } from '../api/types'
-import { formatCost, getModelLabel } from '../api/format'
+import { formatCost, formatFinancialYear, getModelLabel } from '../api/format'
 import { useModels } from '../api/hooks'
 import { statusMeta } from '../lib/status'
 import { PHASE_LABEL, isPhase2Plus, tabsForStatus, type WorkspaceTab } from '../lib/phase'
@@ -67,6 +67,7 @@ export function WorkspaceHeader({
           </Group>
           <Text fz={11} c={tokens.textTertiary} mt={1} truncate>
             {job.abn ? `ABN ${job.abn} · ` : ''}
+            {job.financial_year_end ? `${formatFinancialYear(job.financial_year_end)} · ` : ''}
             {PHASE_LABEL[job.status]}
           </Text>
         </Box>

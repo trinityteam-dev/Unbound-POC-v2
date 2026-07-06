@@ -5,6 +5,7 @@ import json
 import shutil
 import tempfile
 import subprocess
+import datetime
 from pypdf import PdfReader
 
 # Load .env file if python-dotenv is installed
@@ -31,15 +32,40 @@ def find_executable(name, default_path):
 PDFTOPPM_PATH = find_executable("pdftoppm", "/opt/homebrew/bin/pdftoppm")
 TESSERACT_PATH = find_executable("tesseract", "/opt/homebrew/bin/tesseract")
 
+# Fallback only when no --financial-year-end is given (see build_system_prompt / main()).
+DEFAULT_FINANCIAL_YEAR_END = "2025-06-30"
+
+
+def _fy_context(financial_year_end=None):
+    """Mirrors core_engine.fy_context() — derives the audit-year anchor (label, start,
+    end) from an ISO 'financial_year_end' date. Duplicated rather than imported since
+    this CLI is a standalone mirror by design (see the NOTE below)."""
+    fy_end_str = financial_year_end or DEFAULT_FINANCIAL_YEAR_END
+    try:
+        fy_end = datetime.date.fromisoformat(fy_end_str)
+    except (ValueError, TypeError):
+        fy_end = datetime.date.fromisoformat(DEFAULT_FINANCIAL_YEAR_END)
+    fy_start = datetime.date(fy_end.year - 1, 7, 1)
+    return {
+        "label": f"FY{fy_start.year % 100:02d}-{fy_end.year % 100:02d}",
+        "start_str": fy_start.strftime("%d %B %Y"),
+        "end_str": fy_end.strftime("%d %B %Y"),
+    }
+
+
 # NOTE: This standalone CLI mirrors the live web-app prompt in core_engine.py
 # (classify_papers). Keep the two in sync. The authoritative per-job taxonomy lives
 # in playbook_config.json; this CLI inlines the full Accounting_Audit taxonomy.
-# See docs/CLASSIFICATION_PLAYBOOK_REFACTOR.md.
-SYSTEM_PROMPT = """You are an AI assistant specialised in Australian income tax auditing and Self-Managed Superannuation Fund (SMSF) work-paper filing.
+# See docs/CLASSIFICATION_PLAYBOOK_REFACTOR.md and docs/CLASSIFICATION_AUDIT_YEAR_FIX.md.
+def build_system_prompt(financial_year_end=None):
+    fy = _fy_context(financial_year_end)
+    return f"""You are an AI assistant specialised in Australian income tax auditing and Self-Managed Superannuation Fund (SMSF) work-paper filing.
 Classify a document's extracted text or OCR text into EXACTLY ONE of the categories below. The text may be noisy or partial OCR.
 
+THIS FUND'S CURRENT AUDIT YEAR IS {fy['label']}: {fy['start_str']} to {fy['end_str']}. Use this exact period — not the calendar year, not today's date — as "the audit year" everywhere below.
+
 Classify by the document's PURPOSE and ISSUER, not by isolated keywords. Apply these precedence rules in order:
-1. PRIOR-YEAR OVERRIDE: a finalised/signed prior-year deliverable, or content relating ONLY to a year before the audit year, => "Prior Year Documents". EXCEPTION: live ATO/registry/super snapshots that merely list prior-year transactions or a prior-30-June balance are classified by type (=> "ATO Accounts"). Future-year documents are classified by type.
+1. PRIOR-YEAR OVERRIDE — evaluate this FIRST, and it WINS over every rule below no matter how cleanly the document also matches a specific type category further down. {fy['label']} runs from {fy['start_str']} (day one) to {fy['end_str']} (last day) inclusive. A finalised/signed prior-year deliverable, OR ANY document whose own content/date/period is about a single event dated before {fy['start_str']}, => "Prior Year Documents". This includes ordinary income/holding/benefit documents that would otherwise cleanly match a specific category below — e.g. a dividend advice paid in March 2022, or a pension payment made/required in June 2024, are STILL "Prior Year Documents" (not "Dividend Statement" or "Benefit paid/transferred") when {fy['label']} started on {fy['start_str']}, because this override is evaluated before type-routing and is not weighed against how specific the type match is. Do NOT reason "the specific category is more precise, so it wins" — that reasoning is backwards; the override is unconditional for anything dated before {fy['start_str']}. This applies even when the document's own text never uses the words "prior year" — compare the document's own date/period (a statement's "as at" date, a period-end, an email's send date, a payment date) against {fy['start_str']} yourself, and remember a date can only be prior-year, current-year, or future-year — there is no fourth option where a strong type match exempts it. THE ONLY EXCEPTION: a LIVE ATO/registry/super-account snapshot — a report pulled right now from ATO Online Services or a registry portal — that merely lists a historical balance/transaction as one row among current ones is classified by type instead (=> "ATO Accounts"); this narrow exception never applies to a dated advice, statement, or email whose entire content is about one prior-year event. Documents dated after {fy['end_str']} (future-year) are classified by type.
 2. ISSUER ROUTING: a wrap/platform/private-bank-issued document => one of the "Wrap -" categories. Wrap/platform issuers include BUT ARE NOT LIMITED TO HUB24, UBS, Macquarie (Wrap AND Private Bank), BT Panorama, Netwealth, CFS, Praemium, Mason Stevens — treat this as a non-exhaustive list, NOT a closed set: ANY consolidated multi-asset investor/portfolio report from an investment platform or a bank's private-client investment service is a "Wrap -" category. A consolidated PORTFOLIO VALUATION + CASH LEDGER / transaction report (e.g. a Macquarie Private Bank report) => "Wrap - Annual Transaction Listing and Portfolio Valuation Report". A broker consolidated pack (e.g. Ord Minnett) => "Broker - Transaction Listing and Portfolio Valuation Report". A single-holding document => the specific direct category (Dividend Statement / Distribution Statement / Annual Tax Statement / Trade Contract / HIN Holding Statement / Chess Holding). IMPORTANT — "Distribution Statement" scope: a managed fund/trust's own "Periodic Statement" for ONE fund is "Distribution Statement" even when it ALSO shows a unit valuation, transaction history and fees for that fund, as long as the issuer is the fund manager itself (not a wrap/platform). Do NOT reject "Distribution Statement" on the grounds that the document is a "general periodic investor statement" rather than a pure distribution-only notice — that distinction does not exist in this taxonomy; the same fund manager's periodic statement template is Distribution Statement regardless of which specific underlying fund it names.
 3. NAMING TRAP: an "Activity Statement" or "Statement of Account" issued by a private accountant/firm is NOT an ATO document => "Other Expenses"; only ATO-issued documents => "ATO Accounts". Within "ATO Accounts", the sub_type MUST be exactly "ITA" or "ICA" — never the generic phrase "ATO integrated client account": an ATO Income Tax Account statement / notice of assessment / income tax account document => sub_type "ITA"; an ATO Integrated Client Account statement or an Activity Statement (BAS/IAS, GST/PAYG instalments or withholding) => sub_type "ICA".
 4. CONTRIBUTIONS vs ATO ACCOUNTS: decide by the document's HEADLINE SUBJECT / main table, using the title and filename. (a) If the title or main table is "Total Superannuation Balance" / TSB / TBC => "ATO Accounts", EVEN THOUGH a TSB report always references contribution caps and eligibility — that does NOT make it a contribution document. (b) If the title or main table is concessional / non-concessional CONTRIBUTIONS (amounts received and cap usage) => "Contribution", EVEN THOUGH it shows the member's TSB. (c) When unsure, the document title/filename wins: "...Total Superannuation Balance" => ATO Accounts; "...Concessional/Non-concessional Contributions" => Contribution. Other ATO income-tax / integrated-client / PAYG / GST account documents => "ATO Accounts".
@@ -79,7 +105,7 @@ Categories:
 - Other Expenses
 
 You must return a valid JSON object matching this structure:
-{
+{{
   "category": "One of the categories listed above exactly, or 'Unclassified'.",
   "sub_type": "The specific document nature within the category (e.g. 'Copy of share certificate', 'Monthly Rental Statement', 'Audit fee invoice'; for 'ATO Accounts' use exactly 'ITA' for Income Tax Account documents or 'ICA' for Integrated Client Account/Activity Statement documents), else null.",
   "account_number": "Extract the bank account number (8-15 digits, strip formatting) if the category is 'Bank & Term Deposits', else null.",
@@ -87,7 +113,7 @@ You must return a valid JSON object matching this structure:
   "date": "Extract the valuation 'as at' date as DD.MM.YY for the Wrap/Broker transaction-and-valuation reports, or the period-end date for the Wrap/standalone Annual Tax Statement, else null.",
   "member_name": "Extract the member / life-insured name if the category is 'Contribution', 'Benefit paid/transferred', or an ATO TSB/TBC document, else null.",
   "reasoning": "A concise explanation of why this document matches the chosen category and sub_type. If 'Unclassified', name the closest categories and why they were rejected."
-}
+}}
 """
 
 def extract_pdf_text(filepath):
@@ -159,11 +185,11 @@ def ocr_pdf_first_page(filepath):
         else:
             raise RuntimeError("Tesseract output file not found")
 
-def query_openrouter_classification(text_content):
+def query_openrouter_classification(text_content, financial_year_end=None):
     """Query OpenRouter API using grok-4.20 to classify the document text."""
     api_key = os.environ.get("OPENROUTER_API_KEY")
     import requests
-    
+
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -171,14 +197,14 @@ def query_openrouter_classification(text_content):
         "HTTP-Referer": "https://github.com/google/doc-intelligence",
         "X-Title": "SMSF Document Classifier"
     }
-    
+
     # Send up to 3500 characters of text to stay within reasonable limits
     doc_snippet = text_content[:3500]
-    
+
     payload = {
         "model": "x-ai/grok-4.20",
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": build_system_prompt(financial_year_end)},
             {"role": "user", "content": f"Document content:\n```\n{doc_snippet}\n```\n\nClassify this document."}
         ],
         "response_format": {"type": "json_object"},
@@ -287,16 +313,20 @@ def main():
         sys.exit(1)
 
     if len(sys.argv) < 2:
-        print("Usage: python3 classify_workpapers.py <input_folder_path> [output_parent_path]")
+        print("Usage: python3 classify_workpapers.py <input_folder_path> [output_parent_path] [financial_year_end]")
+        print("  financial_year_end: ISO date of the 30 June the audit is FOR, e.g. 2024-06-30 for FY23-24. Defaults to 2025-06-30.")
         sys.exit(1)
-        
+
     input_folder = os.path.abspath(sys.argv[1])
     if not os.path.isdir(input_folder):
         print(f"Error: Input path is not a directory: {input_folder}", file=sys.stderr)
         sys.exit(1)
-        
+
     # Determine output folder
     output_parent = os.path.abspath(sys.argv[2]) if len(sys.argv) > 2 else os.getcwd()
+    financial_year_end = sys.argv[3] if len(sys.argv) > 3 else None
+    fy = _fy_context(financial_year_end)
+    print(f"Audit year: {fy['label']} ({fy['start_str']} to {fy['end_str']})")
     output_dir = os.path.join(output_parent, "output", "workpaper")
     os.makedirs(output_dir, exist_ok=True)
     
@@ -344,7 +374,7 @@ def main():
             
         # 3. Query OpenRouter
         print("  Querying Grok-4.20 classification...")
-        classification = query_openrouter_classification(text)
+        classification = query_openrouter_classification(text, financial_year_end)
         
         if not classification:
             print(f"  Skipping: API classification failed for {filename}")

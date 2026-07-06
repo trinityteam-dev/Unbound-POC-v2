@@ -306,6 +306,7 @@ def run_phase2_worker(job_id, fund_profile, job_type, api_key, model=None):
             update_job_progress,
             record_usage=record_llm_usage_p2,
             model=model,
+            reconciliation_results=bank_recon["reconciliation_results"],
         )
         
         # Compile automated auditor notes / exceptions based on results
@@ -322,28 +323,36 @@ def run_phase2_worker(job_id, fund_profile, job_type, api_key, model=None):
                         "description": details.get("notes", "This required document was not found in the workpapers directory.")
                     })
         
-        # 2. Member TSB checks
-        member = results.get("member_reconciliation", {})
-        if member:
+        # 2. Member TSB checks — one entry per member, not just the first.
+        members = results.get("member_reconciliation") or []
+        if isinstance(members, dict):
+            members = [members]
+        for member in members:
             tsb_24 = member.get("tsb_2024", 0)
             tsb_25 = member.get("tsb_2025", 0)
             if tsb_25 < tsb_24:
                 auditor_notes.append({
                     "type": "error",
-                    "title": "Member Balance Variance Exception",
+                    "title": f"Member Balance Variance Exception: {member.get('name', 'Unknown Member')}",
                     "description": member.get("audit_finding", "The ATO TSB balance reports show a discrepancy from prior year.")
                 })
-                
-        # 3. Portfolio Variance check
+
+        # 3. Portfolio variance checks — one entry per cross-referenceable holding actually
+        # found in this fund's documents, not a single hardcoded security.
         portfolio = results.get("portfolio_reconciliation", {})
         if portfolio:
-            mxt = portfolio.get("mxt_reconciliation", {})
-            if mxt and mxt.get("variance_value", 0) > 0:
-                auditor_notes.append({
-                    "type": "warning",
-                    "title": "Security Registry Price Discrepancy",
-                    "description": f"A pricing variance of ${mxt.get('variance_value'):.2f} exists for MXT holding. Ord Minnett values it at ASX close price, Automic values at NAV."
-                })
+            for holding in portfolio.get("holdings_reconciliation") or []:
+                variance = holding.get("variance_value") or 0
+                if variance > 0:
+                    name = holding.get("security_name", "holding")
+                    auditor_notes.append({
+                        "type": "warning",
+                        "title": f"Security Registry Price Discrepancy: {name}",
+                        "description": holding.get(
+                            "explanation",
+                            f"A pricing variance of ${variance:.2f} exists for the {name} holding between the broker and registry/wrap valuation.",
+                        )
+                    })
 
         jobs = load_jobs()
         for j in jobs:
@@ -595,6 +604,9 @@ def api_create_job():
         "fund_id": fund_id,
         "fund_name": fund_profile.get("name"),
         "abn": fund_profile.get("abn"),
+        # Snapshotted at creation time (not looked up live from funds_config later) so a
+        # job's displayed audit year stays stable even if the fund's config changes after.
+        "financial_year_end": fund_profile.get("financial_year_end"),
         "job_type": job_type,
         "model": model,
         "status": "processing_docs",

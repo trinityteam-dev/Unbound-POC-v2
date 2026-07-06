@@ -16,6 +16,17 @@ export function formatMoney(a: string | null | undefined): string {
   return n.toLocaleString('en-AU', { style: 'currency', currency: 'AUD' })
 }
 
+/** Format a fund/job's `financial_year_end` ("2024-06-30") as "FY23-24"; em-dash when
+ * absent (older jobs/funds predate this field — see docs/CLASSIFICATION_AUDIT_YEAR_FIX.md). */
+export function formatFinancialYear(financialYearEnd: string | null | undefined): string {
+  if (!financialYearEnd) return '—'
+  const end = new Date(financialYearEnd)
+  if (Number.isNaN(end.getTime())) return '—'
+  const endYear = end.getUTCFullYear()
+  const startYear = endYear - 1
+  return `FY${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`
+}
+
 /** Parse the engine's short date "dd.mm.yy" → Date, or null. */
 export function parseShortDate(d: string | null | undefined): Date | null {
   if (!d) return null
