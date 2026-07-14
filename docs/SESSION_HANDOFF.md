@@ -12,6 +12,8 @@ section wholesale; only condense a workstream once its detail lives in its own
 | [Classification playbook](#classification-playbook) | Done — deferred decisions + audit-year default open | 2026-07-05 |
 | [Reconciliation hardening](#reconciliation-hardening) | In progress — Step 2 (OCR engine swap) + Phase-2 hang-hardening open | 2026-07-05 |
 | [Bank account discovery & statement splitting](#bank-account-discovery--statement-splitting) | In progress — one fund fixed, backstop deferred | 2026-07-05 |
+| [Compliance checklist grounding](#compliance-checklist-grounding) | Done — evidence rule shipped | 2026-07-10 |
+| [Productionisation architecture](#productionisation-architecture) | Design captured — 3 business decisions open | 2026-07-10 |
 | [Cross-cutting](#cross-cutting) | — | 2026-07-02 |
 
 ---
@@ -519,6 +521,121 @@ caused it (and a related classification-consistency issue) is recorded but
 **Detailed docs:** `docs/BANK_ACCOUNT_DISCOVERY_RCA.md` (full RCA + decision
 log), `docs/BANK_STATEMENT_GROUPED_ROW_FIX.md`,
 `docs/DISTRIBUTION_STATEMENT_CLASSIFICATION_INCONSISTENCY_FIX.md`.
+
+---
+
+## Compliance checklist grounding
+
+**Status:** Done — the Phase-2 compliance checklist now grounds every "Verified" in an
+actual workpaper file. Full detail in `docs/CHECKLIST_EVIDENCE_GROUNDING_FIX.md`.
+
+### Update 2026-07-10
+
+- **Symptom (Aashka Family Super Fund, `job_20260706_093426`):** checklist marked Trust
+  Deed, ATO Trustee Declaration, Investment Strategy, Death Benefit Nominations, and ASIC
+  Statement/Extract as **Verified** with empty `files` and "assumed on file / assumed
+  compliant" notes — none of those documents were actually in the fund's workpapers.
+- **Cause:** the `reconcile_papers` prompt allowed assumption-based verification, and the
+  deterministic post-processing only *promoted* to Verified (never demoted), while
+  Permanent/General/Prior-Year/Term-Deposit categories had no filename matcher at all.
+- **Fix (`core_engine.py`):** (1) added `CHECKLIST_FILE_MATCHERS` so those categories are
+  grounded in real `"<category> - <sub_type>.pdf"` filenames; (2) evidence rule — any
+  `Verified` with an empty `files` list is downgraded to `Missing` (N/A untouched);
+  (3) prompt hardened to bar evidence-free `Verified`. User chose `Missing` (over a new
+  "Needs Review" status) for empty-evidence items.
+- **Known consequence:** checklist items with no possible evidence source (Trustee
+  Minutes, Signed Financial Statements, Audit Engagement/Representation Letters, EPoA) now
+  show `Missing` for funds that don't supply them, instead of a false `Verified`. Intended.
+- **Not yet done:** re-run the affected jobs through Phase 2 to regenerate stored
+  `results` (the fix only changes future runs; existing `jobs_db.json` entries still hold
+  the old false-Verified statuses). Change is **uncommitted**.
+
+---
+
+## Productionisation architecture
+
+**Status:** Design captured — 3 business-level decisions open. Full reference:
+`docs/PRODUCTION_ARCHITECTURE.md`.
+
+**Context:** design review of what it takes to take this POC to a production SMSF product
+under Australian privacy/compliance (Privacy Act + APPs, TFN Rule, NDB scheme, SIS
+retention, APES 110). Written with a buy-over-build, cost-aware, privacy-first lens.
+
+### Update 2026-07-10 — architecture design record created
+
+`docs/PRODUCTION_ARCHITECTURE.md` captures the target state. Key positions taken:
+
+- **Binding constraint is privacy/residency**, not scale. The dominant current risk is
+  that real member financial data is sent to **OpenRouter → xAI Grok (US)** — an APP 8
+  cross-border disclosure problem. Fix = in-region (**AWS `ap-southeast-2` Sydney** default)
+  LLM under a zero-retention DPA, i.e. **Bedrock Claude** (already in `models_config.json`),
+  and **retire OpenRouter for production**.
+- **Buy > build.** Rent identity (Cognito/Entra), DB (Aurora Serverless v2 Postgres), queue
+  (SQS), storage (S3), OCR (managed doc-AI), PII detection (Comprehend), secrets, audit.
+  Keep in-house only the moat: the `core_engine.py` domain logic, playbook/taxonomy, the
+  human-approval workflow, prompts, and the Confident-and-Wrong-Rate eval.
+- **Serverless/consumption-first** because the workload is spiky/seasonal — near-zero idle
+  floor; dominant variable cost is LLM tokens then per-page OCR (controls: model tiering,
+  extract-then-reason, prompt caching, per-tenant budgets).
+- **PII minimisation before any external call:** never send TFNs to OCR-cloud or LLM
+  (guard the empty `FundMember.tfn` field before it's ever populated); custom AU-identifier
+  validators (TFN/ABN/BSB checksums) are ours to build.
+
+**Cross-reference / tension to resolve:** this doc recommends **managed cloud OCR**
+(Textract / Azure Document Intelligence / Google Document AI) for table-aware statement
+extraction, which directly serves the open **[Reconciliation hardening](#reconciliation-hardening)
+Step 2 (OCR engine swap)** task. That task's current external recommendation is
+**self-hosted PaddleOCR/Docling**. These are competing answers to the same problem —
+managed (better quality + less ops, but a document disclosure to a processor, in-region
+under DPA) vs self-hosted (fully on-box, more ops/infra). **Decide these two together**, not
+independently; the privacy call (is per-page cloud OCR disclosure acceptable?) drives it.
+
+**Open decisions (for the business owner, not just engineering):**
+1. **Tenancy model** — siloed single-tenant-per-firm (recommended for the privacy story +
+   as a sales differentiator) vs pooled multi-tenant (cheaper). Largest downstream impact;
+   decide first.
+2. **Cloud** — AWS vs Azure (both have AU-region LLM + doc-AI + identity). Pick one.
+3. **Is any LLM/OCR disclosure acceptable to the firm's clients at all?** If not, fallback is
+   fully in-VPC self-hosted models — needs explicit compliance sign-off, ideally reflected
+   in engagement letters.
+
+**Immediate remediation flagged (independent of roadmap):** rotate the live OpenRouter key
+in plaintext `.env`; scrub committed PII from `funds_config.json` git history; secure the
+path-traversable unauthenticated `/api/jobs/.../file/...` download route; guard the TFN
+field. See `docs/PRODUCTION_ARCHITECTURE.md` §11.
+
+### Update 2026-07-12 — ICE pre-production proposal review + eval methodology captured
+
+Reviewed a partner-drafted engagement proposal ("Pre-Production Engagement: Automated
+Ingestion & Precision Extraction Engine (ICE)", DRAFT V1.0) and worked through the
+measurement/evaluation methodology for the production accuracy gate. Three new reference
+docs (no code changes this session):
+
+- **`docs/ICE_SCOPE_REVISIONS.md`** — scope-relevant changes to the proposal with rationale
+  and the question that drove each: scope anchor (11 weeks = **identify + key-field
+  extraction only**; Section 3's reconciliation/checklist/query-gen/Class-BGL/portal is
+  future-phase); data residency (**keep Grok/OpenRouter under a client consent clause + TFN
+  redaction carve-out**; fix the "data stays in-boundary" contradiction); two-POC
+  convergence (the 3-expert vote / keyword taxonomy / 3.2% CER / Google Doc AI come from a
+  **parallel Python POC**); rename "RL" → feedback-driven keyword refinement; **95% gate
+  reframed** from POC self-*confidence* to gold-set **value accuracy on mandatory fields +
+  CWR ceiling**; **10,000/type "training" dropped** (LLMs aren't trained by data — split
+  into free improvement data + a small measurement gold set); **114 distinct schemas** →
+  tiered gold set, gate scoped to Tier-1.
+- **`docs/EXTRACTION_METRICS_EXPLAINED.md`** — Accuracy / Precision / Recall / CWR with the
+  worked BeFree examples (value accuracy 13/15; the 100-doc member-name batch →
+  85%/81.6%/80%/5%; CWR-not-implied-by-accuracy 0%/3.75%/6.25%; CWR≠precision; per-doc CWR
+  compounding ≈9.6%), confidence intervals (√n rule), why-a-gold-set (sampling/generalisation
+  + fixed ruler), and when LLM-as-judge works without a reference.
+- **`docs/EVALUATION_HARNESS_SPEC.md`** — 10-step build/run sequence (QA ruler → freeze/split
+  dev/held-out → lock match rules → harness → baseline → error analysis + confusion matrix →
+  confidence calibration → set gate → regression → CI gate → production audit), scorecard
+  format, gate wording, deliverables checklist.
+
+**Open (business/client inputs needed):** per-type document-frequency distribution (to pick
+Tier-1 ~15); consent-clause wording (+ counsel); labelling resourcing/curation; set `[Y]%`
+CWR ceiling + confirm 95% floor after the Sprint-1 baseline. **No eval harness built yet** —
+spec only; offered to scaffold it against `core_engine`.
 
 ---
 
