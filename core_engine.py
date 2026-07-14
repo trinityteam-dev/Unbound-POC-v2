@@ -1229,6 +1229,14 @@ IMPORTANT for "member_reconciliation": the input above is the list of ALL of thi
 members (from the fund profile) as a JSON array — one placeholder object per member. Return
 the SAME LENGTH array, one completed object per member, in the same order. Do not return a
 single object and do not drop any member.
+
+IMPORTANT for "checklist": mark an item "Verified" ONLY when a specific provided document
+actually evidences it, and name that document in "files". If no provided document supports a
+required item, set it to "Missing" — never assume a document is "on file", "standard", or
+"assumed compliant", and never mark "Verified" with an empty "files" array. Use "N/A" only
+when the item is genuinely not applicable to this fund (e.g. a change of trustee that did not
+occur during the period, or a term deposit the fund does not hold) — "N/A" is not a substitute
+for "Missing".
 """
 
     update_progress(80, f"Querying OpenRouter AI ({model}) for dynamic audit analysis...")
@@ -1302,7 +1310,28 @@ single object and do not drop any member.
                 "notes": legacy_dist.get("notes"),
             }]
 
-    # Clean and fill checklist files dynamically
+    # Clean and fill checklist files dynamically.
+    #
+    # Deterministic evidence grounding: a checklist item may only be "Verified" when a
+    # real workpaper file backs it. Workpaper files are named "<classification category>
+    # - <sub_type> ...pdf" (see classify_papers), so we match on the category string.
+    # The four categories below (Cash at Bank, Listed Securities, Current Tax, Other
+    # Expenses) have bespoke matchers; the permanent/general/prior-year/term-deposit
+    # items match by name via CHECKLIST_FILE_MATCHERS. Only items whose documents can
+    # actually be produced by the classifier are listed — items with no possible
+    # evidence source (e.g. Trustee Minutes) correctly fall through to "Missing" below,
+    # rather than being rubber-stamped "Verified" on the LLM's assumption.
+    CHECKLIST_FILE_MATCHERS = {
+        "Trust Deed": ["Trust Deed"],
+        "Change of Trustee": ["Change of trustee", "Change of Trustee"],
+        "ATO Trustee Declaration": ["Trustee Declaration"],
+        "Investment Strategy": ["Investment Strategy"],
+        "Death Benefit Nominations": ["Death Benefit"],
+        "ASIC Statement/Extract": ["ASIC Statement", "ASIC Extract"],
+        "Member Joined or Left": ["Member Joined or Left", "Member Joined"],
+        "Prior Year Audit Reports / Financials": ["Prior Year Documents", "Prior Year"],
+        "Term Deposit Certificates/Statements": ["Term Deposit"],
+    }
     checklist_status = ai_results.get("checklist", {})
     for cat, items in checklist_status.items():
         for name, details in items.items():
@@ -1340,10 +1369,27 @@ single object and do not drop any member.
                     details["files"] = [f for f in available_files if (("Other Expenses" in f and "Audit" not in f) or "Accountancy" in f or "RI34193" in f)]
                 elif "Audit" in name:
                     details["files"] = [f for f in available_files if (("Other Expenses" in f and "Audit" in f) or "Audit Invoice" in f)]
-            
-            # Auto-verify if files matches
+            elif name in CHECKLIST_FILE_MATCHERS:
+                needles = [n.lower() for n in CHECKLIST_FILE_MATCHERS[name]]
+                details["files"] = [
+                    f for f in available_files if any(n in f.lower() for n in needles)
+                ]
+
+            # Evidence rule: a supporting file makes the item "Verified"; conversely an
+            # item the LLM marked "Verified" with NO supporting file was asserted on
+            # assumption ("assumed on file", "assumed compliant") and cannot stand — it
+            # is downgraded to "Missing" so the exception log surfaces it. "N/A" is left
+            # untouched: a genuinely not-applicable item (a change of trustee that never
+            # happened, a term deposit the fund doesn't hold) has nothing to evidence.
+            # See docs/CHECKLIST_EVIDENCE_GROUNDING_FIX.md.
             if details["files"]:
                 details["status"] = "Verified"
+            elif str(details.get("status", "")).strip().lower() == "verified":
+                details["status"] = "Missing"
+                details["notes"] = (
+                    "No supporting document found in the workpapers "
+                    "(auto-downgraded from an unverified 'Verified')."
+                )
                 
     # If job_type is Accounting, forcefully override checklist statuses to N/A for audit/permanent tasks
     if job_type == "Accounting":
@@ -1675,6 +1721,22 @@ Rules:
   through it (one per period boundary, not only at the very end); every single one of them
   must be dropped, none should ever appear as a transaction row in your output.
 - Strip currency symbols and commas from numeric values (e.g. "$1,234.56" → 1234.56)
+- SOME accounts are actually a platform/wrap cash ledger (e.g. a "BT Panorama", "Macquarie
+  Wrap" or similar investment-platform transaction history) rather than a plain bank
+  narrative statement. These render as a WIDE TABLE — trade date, settlement date,
+  investment type (e.g. "Cash Management Account"), security code/name, a genuine
+  "Description" column, transaction type (e.g. "Income", "Fee", "Buy", "Sell"), units, and
+  net amount — that OCR/text-extraction flattens onto one line per row, e.g.:
+  "30 June 2025  29 July 2025  Cash Management Account  ETL4846AU · Spire Multifamily
+  Growth and Income Fund  Distribution 43,121.005895 Spire Multifamily Growth and Income
+  Fund @ $0.006433  Income  $277.40".
+  When you see this shape, `description` must be ONLY the genuine narrative text from the
+  Description column (here: "Distribution 43,121.005895 Spire Multifamily Growth and
+  Income Fund @ $0.006433") — never prepend the settlement date, investment type label,
+  or security code, and never append the transaction-type label (Income/Fee/Buy/Sell) or
+  repeat the amount. Put the full original flattened line in `raw_line` so nothing is
+  lost, but keep `description` limited to what a bank teller would call the transaction's
+  description, not the whole table row.
 """
     user_content = (
         f"Account: {account.get('name', 'Unknown')} (Number: {account.get('number', 'Unknown')})\n\n"
